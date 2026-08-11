@@ -47,15 +47,15 @@ Frames: 8:9 (960×1080), 16:9, 1:1, 9:16, and Phone (1179×2556).
 | **Light** | Direction, middle point, falloff, bloom |
 | **Hand** | Organic, seed |
 | **Motion** | Drift, direction (across / along / spin) |
-| **Cast** | Pattern (shoji / slat / dapple / leaves), light or shadow, strength, scale, position |
+| **Cast** | Pattern (coupe / flute / piano / chandelier), strength, angle, blur, density, scale, position |
 | **Finish** | Saturation, contrast, highlights, shadows, grain |
 
 **Seed** governs every random decision — wave phases, gradient tilt, bloom placement,
 cast layout, grain pattern. Same seed plus same settings reproduces a file exactly.
 
-**Randomize** rolls composition, palette, light, motion and cast within bounded ranges.
-It deliberately holds the frame and the entire Finish panel, which are calibration
-rather than exploration.
+**Randomize** rolls composition, palette, light and motion within bounded ranges.
+It deliberately holds the frame, the entire Finish panel and the entire Cast panel —
+calibration and deliberate finishing touches, rather than exploration.
 
 **Undo/redo** is ⌘Z / ⇧⌘Z across every control, including palette loads and image
 sampling. Panel open/closed state is excluded, so undo never moves the interface.
@@ -101,24 +101,69 @@ personal access token, no secrets to configure.
 ## Working on it
 
 `main` is what the live URL serves, so it should always be in a shareable state.
+Anything you would not want a client to open by surprise goes on a branch.
 
-Anything non-trivial goes on a branch:
+### Naming
+
+**Branches** — `type/what-it-is`, lowercase, hyphens, no dates or initials. The type
+prefix makes the branch list sort itself, which matters once there are a dozen.
+
+| Prefix | For | Example |
+| --- | --- | --- |
+| `feat/` | a new capability | `feat/cast-barware` |
+| `fix/` | something behaving wrongly | `fix/cast-gradient-fade` |
+| `ui/` | interface and layout only | `ui/collapsible-panels` |
+| `art/` | shapes, palettes, traced silhouettes | `art/piano-silhouette` |
+| `exp/` | an exploration that may never merge | `exp/conic-gradients` |
+| `docs/` | README, NOTES, workflow files | `docs/engine-notes` |
+
+Name the branch after the outcome, not the task: `feat/cast-barware`, not
+`update-cast`. In six months the branch list is the only record of what was tried.
+
+**Commits** — imperative mood, under about 60 characters, finishing the sentence
+*"this commit will…"*:
 
 ```
-git checkout -b field-shapes
-# edit index.html
-git commit -am "Add tapered plume variant"
-git push -u origin field-shapes
+Trace barware silhouettes from reference art
+Fix cast fading out over the dark end of the gradient
+Pin cast to a single object
 ```
 
-That push produces a preview URL. Open a pull request to merge it into `main`.
+Not `updates`, `wip`, `changes`. If a commit needs a *why*, put it in the body —
+that is where the reasoning survives.
 
-Tag releases at meaningful points so a specific build can always be recovered:
+**Releases** — `v<major>.<minor>`, tagged on `main` when a build is worth returning
+to. Minor for new capability or refinement, major when the output changes enough
+that earlier exports no longer match. Give each one a title in the release notes:
 
 ```
-git tag -a v22 -m "Leaves cast, spin blur, highlights and shadows"
-git push --tags
+v1.0  Barware casts
+v1.1  Cast density and blur
 ```
+
+Start at `v1.0` rather than continuing the `v22` numbering — those numbers were
+filenames in a chat, not releases, and carrying them over means the tags start
+mid-story with no `v1` to point at.
+
+### The process
+
+1. **Code** tab → branch dropdown (it says `main`) → type the new branch name →
+   **Create branch: … from main**.
+2. Confirm the dropdown now shows your branch. Everything you commit goes there.
+3. Edit `index.html` — the pencil icon to edit in place, or **Add file → Upload
+   files** to replace it with a new copy. Commit.
+4. **Pull requests** → **New pull request** → base `main`, compare your branch →
+   **Create pull request**. Draft is fine.
+5. Within a minute a preview URL is posted as a comment. That link is what you
+   share for review. Pushing more commits updates the same URL.
+6. When it is approved: **Merge pull request** → **Delete branch**. `main` deploys
+   to the live URL, and the preview cleans itself up.
+7. If the merge is a milestone: **Releases** → **Draft a new release** → new tag
+   `v1.x` → title and notes → **Publish**.
+
+A branch nobody has opened a pull request for has no preview URL. The pull request
+is what makes the work reviewable, so open it early and mark it draft rather than
+waiting until the work is finished.
 
 Before changing the render engine, read [`NOTES.md`](NOTES.md). It documents the
 constraints the SVG export depends on — several of them are non-obvious, and breaking
