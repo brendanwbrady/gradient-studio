@@ -1,4 +1,3 @@
-[README (1).md](https://github.com/user-attachments/files/30945745/README.1.md)
 # Gradient Studio
 
 A browser-based generator for soft, grained gradient fields, built to hand off cleanly
