@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gradient Studio — Pilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+
+  :root{
+    /* ink ramp */
+    --ink:#0B0B0C;
+    --panel:#151517;
+    --raise:#212125;
+    --line:#212125;
+    --line-strong:#3C3C42;
+    /* type */
+    --text:#FFFFFF;
+    --text-2:#C2C2C9;
+    --muted:#9C9CA4;
+    /* accent */
+    --accent:#FFB601;
+    --on-accent:#0B0B0C;
+    /* radius */
+    --r-pill:999px;
+    --r-sm:8px;
+    --r-md:12px;
+    /* families */
+    --sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{height:100%}
+  body{margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);font-size:13px;
+    -webkit-font-smoothing:antialiased;display:flex;overflow:hidden}
+
+  /* ---------- rail ---------- */
+  #rail{width:328px;flex:0 0 328px;height:100vh;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+  #railHead{padding:22px 22px 16px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .lockup{font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:9px}
+  .lockup .yf{color:var(--accent)}
+  .wordmark{font-family:var(--sans);font-weight:500;font-size:19px;letter-spacing:-.015em;line-height:1;margin:0;color:var(--text)}
+  .histbtns{display:flex;gap:5px;flex:0 0 auto}
+  .hb{width:28px;height:28px;border:1px solid var(--line);background:transparent;color:var(--muted);
+    border-radius:var(--r-pill);cursor:pointer;font-size:13px;line-height:1;padding:0;transition:.15s}
+  .hb:hover:not(:disabled){color:var(--text);border-color:var(--line-strong)}
+  .hb:disabled{opacity:.3;cursor:default}
+
+  #railBody{flex:1;overflow-y:auto;padding:2px 22px 20px;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+  #railBody::-webkit-scrollbar{width:8px}
+  #railBody::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+
+  .group{padding:18px 0 8px;border-bottom:1px solid var(--line)}
+  .group:last-child{border-bottom:0}
+  .group[data-panel]{padding:0;border-bottom:1px solid var(--line)}
+  .phead{display:flex;align-items:center;justify-content:space-between;width:100%;
+    background:none;border:0;padding:15px 0 14px;cursor:pointer;color:var(--muted);
+    font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.14em;text-transform:uppercase;transition:.15s}
+  .phead:hover{color:var(--text)}
+  .phead[aria-expanded="true"]{color:var(--text)}
+  .caret{width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+    transform:rotate(-45deg);transition:transform .18s;margin-right:2px;opacity:.75}
+  .phead[aria-expanded="true"] .caret{transform:rotate(45deg)}
+  .pbody{overflow:hidden;padding-bottom:10px}
+  .phead[aria-expanded="false"]+.pbody{display:none}
+  .glabel{font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:11px}
+
+  /* ---------- chips ---------- */
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-family:var(--sans);font-weight:500;font-size:11.5px;letter-spacing:0;color:var(--text-2);
+    background:transparent;border:1px solid var(--line);border-radius:var(--r-pill);
+    padding:5px 11px;cursor:pointer;transition:.15s;line-height:1.35}
+  .chip:hover{color:var(--text);border-color:var(--line-strong)}
+  .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+
+  /* ---------- rows ---------- */
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .row label{flex:1;font-size:12.5px;color:var(--text-2)}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:110px;height:2px;background:var(--line-strong);
+    border-radius:2px;outline:none;cursor:pointer;flex:0 0 110px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;
+    background:var(--accent);border:0;cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--accent);border:0;cursor:pointer}
+  input[type=range]:focus-visible{box-shadow:0 0 0 3px rgba(255,182,1,.28)}
+
+  input.num{width:54px;flex:0 0 54px;font-family:var(--mono);font-size:10.5px;color:var(--text);
+    background:transparent;border:1px solid transparent;border-radius:var(--r-sm);padding:5px 7px;text-align:right;outline:none;transition:.15s}
+  input.num:hover{border-color:var(--line)}
+  input.num:focus{border-color:var(--accent);background:var(--raise)}
+  input.num::-webkit-outer-spin-button,input.num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  input.num{-moz-appearance:textfield}
+  input.num.wide{width:72px;flex:0 0 72px;text-align:left}
+
+  select{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;background:var(--raise);color:var(--text);
+    border:1px solid var(--line);border-radius:var(--r-sm);padding:6px 8px;outline:none;cursor:pointer}
+  select:focus{border-color:var(--accent)}
+
+  /* ---------- colour stops ---------- */
+  .stop{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .sw{position:relative;width:26px;height:26px;border-radius:var(--r-pill);border:1px solid rgba(255,255,255,.16);
+    overflow:hidden;cursor:pointer;flex:0 0 26px}
+  .sw input{position:absolute;inset:-6px;width:150%;height:150%;border:0;padding:0;background:none;cursor:pointer;opacity:0}
+  .stop .nm{flex:1;font-size:12.5px;color:var(--text-2)}
+  .stop .hex{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-transform:uppercase}
+
+  /* ---------- image reference ---------- */
+  .drop{border:1px dashed var(--line-strong);border-radius:var(--r-md);padding:14px;text-align:center;cursor:pointer;transition:.15s;
+    font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .drop:hover,.drop.over{border-color:var(--accent);color:var(--text)}
+  .drop img{display:block;width:100%;height:76px;object-fit:cover;border-radius:var(--r-sm);margin-bottom:11px}
+  .refstrip{display:flex;gap:5px;margin-top:10px}
+  .refstrip span{flex:1;height:20px;border-radius:var(--r-pill);border:1px solid rgba(255,255,255,.14)}
+
+  /* ---------- foot ---------- */
+  #railFoot{border-top:1px solid var(--line);padding:16px 22px 16px;background:var(--panel)}
+  .btnrow{display:flex;gap:6px;margin-bottom:6px}
+  button.act{flex:1;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    background:transparent;color:var(--text);border:1px solid var(--line);border-radius:var(--r-pill);
+    padding:10px 6px;cursor:pointer;transition:.15s}
+  button.act:hover{border-color:var(--line-strong);background:var(--raise)}
+  button.act.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  button.act.primary:hover{background:#FFC634;border-color:#FFC634}
+  .foot-note{font-family:var(--sans);font-size:11px;line-height:1.5;color:var(--muted);margin-top:11px}
+  .colophon{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#5B5B63;margin-top:12px}
+
+  /* ---------- stage ---------- */
+  #stage{flex:1;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;position:relative}
+  #preview{box-shadow:0 30px 80px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.06);line-height:0;max-width:100%}
+  #preview svg{display:block;max-width:100%;max-height:calc(100vh - 158px);width:auto;height:auto}
+  #meta{font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin-top:20px;display:flex;align-items:center;gap:12px}
+  #meta span+span::before{content:"/";color:var(--accent);margin-right:12px}
+  #toast{position:fixed;bottom:26px;left:50%;transform:translate(-50%,14px);opacity:0;pointer-events:none;
+    background:var(--raise);border:1px solid var(--line-strong);color:var(--text);font-family:var(--mono);
+    font-size:10.5px;letter-spacing:.06em;padding:10px 16px;border-radius:var(--r-pill);transition:.25s;z-index:9}
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:900px){
+    body{flex-direction:column;overflow:auto}
+    #rail{width:100%;flex:none;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+    #railBody{overflow:visible}
+    #stage{height:auto;padding:24px}
+    #preview svg{max-height:60vh}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<aside id="rail">
+  <div id="railHead">
+    <div>
+      <div class="lockup">Pilot<span class="yf">/Yellowfly</span></div>
+      <h1 class="wordmark">Gradient Studio</h1>
+    </div>
+    <div class="histbtns">
+      <button class="hb" id="undo" title="Undo (⌘Z)" disabled>↶</button>
+      <button class="hb" id="redo" title="Redo (⇧⌘Z)" disabled>↷</button>
+    </div>
+  </div>
+
+  <div id="railBody">
+
+    <div class="group" style="padding-top:16px">
+      <div class="btnrow">
+        <button class="act" id="randomize">Randomize</button>
+        <button class="act" id="resetAll">Reset</button>
+      </div>
+    </div>
+
+    <div class="group" data-panel>
+      <button class="phead" type="button" aria-expanded="false"><span>Palette</span><i class="caret"></i></button>
+      <div class="pbody">
+            <div class="chips" id="palettes"></div>
+      <div class="glabel" style="margin:12px 0 8px">Traditional</div>
+      <div class="chips" id="palettes2"></div>
+      <div style="height:14px"></div>
+      <div class="stop"><span class="sw" id="sw0"><input type="color" id="c0"></span><span class="nm">Ground</span><span class="hex" id="h0"></span></div>
+      <div class="stop"><span class="sw" id="sw1"><input type="color" id="c1"></span><span class="nm">Middle</span><span class="hex" id="h1"></span></div>
+      <div class="stop"><span class="sw" id="sw2"><input type="color" id="c2"></span><span class="nm">Light</span><span class="hex" id="h2"></span></div>
+      <div class="glabel" style="margin:14px 0 8px">Sample an image</div>
+      <div class="drop" id="drop">
+        <img id="refThumb" alt="" hidden>
+        <span id="dropLabel">Drop an image or click</span>
+      </div>
+      <div class="refstrip" id="refStrip" hidden></div>
+      <div class="btnrow" id="refBtns" style="margin-top:8px" hidden>
+        <button class="act" id="remix">Re-mix triad</button>
+        <button class="act" id="clearRef" style="flex:0 0 74px">Clear</button>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+</div>
+    </div>
+
+    <div class="group" data-panel>
+      <button class="phead" type="button" aria-expanded="false"><span>Frame</span><i class="caret"></i></button>
+      <div class="pbody">
+            <div class="chips" id="frames"></div>
+</div>
+    </div>
+
+    <div class="group" data-panel>
+      <button class="phead" type="button" aria-expanded="false"><span>Field</span><i class="caret"></i></button>
+      <div class="pbody">
+            <div class="chips" id="forms" style="margin-bottom:11px"></div>
+      <div class="glabel" style="margin-bottom:8px">Organic</div>
+      <div class="chips" id="forms2" style="margin-bottom:12px"></div>
+      <div class="row" data-ctrl="width"><label>Width</label></div>
+      <div class="row" data-ctrl="inset"><label>Margin</label></div>
+      <div class="row" data-ctrl="blur"><label>Blur</label></div>
+</div>
+    </div>
+
+    <div class="group" data-panel>
+      <button class="phead" type="button" aria-expanded="false"><span>Light</span><i class="caret"></i></button>
+      <div class="pbody">
+      <div class="glabel" style="margin-bottom:8px">Direction</div>
+      <div class="chips" id="dirs" style="margin-bottom:12px"></div>
+      <div class="row" data-ctrl="mid"><label>Middle point</label></div>
+      <div class="row" data-ctrl="falloff"><label>Falloff</label></div>
+      <div class="row" data-ctrl="bloom"><label>Bloom</label></div>
+      </div>
+    </div>
+
+    <div class="group" data-panel>
+      <button class="phead" type="button" aria-expanded="false"><span>Hand</span><i class="caret"></i></button>
+      <div class="pbody">
+            <div class="row" data-ctrl="organic"><label>Organic</label></div>
+      <div class="row">
+        <label for="seedNum">Seed</label>
+        <input type="number" class="num wide" id="seedNum" min="1" max="999" step="1">
+        <button class="act" id="shuffle" style="flex:0 0 88px;padding:7px 4px">Shuffle</button>
+      </div>
+</div>
+    </div>
+
+    <div class="group" data-panel>
+      <button class="phead" type="button" aria-expanded="false"><span>Motion</span><i class="caret"></i></button>
+      <div class="pbody">
+      <div class="row" data-ctrl="drift"><label>Drift</label></div>
+      <div class="glabel" style="margin-bottom:8px">Direction</div>
+      <div class="chips" id="drifts"></div>
+      </div>
+    </div>
+
+    <div class="group" data-panel>
+      <button class="phead" type="button" aria-expanded="false"><span>Cast</span><i class="caret"></i></button>
+      <div class="pbody">
+            <div class="chips" id="casts" style="margin-bottom:12px"></div>
+      <div class="glabel" style="margin-bottom:8px">Reads as</div>
+      <div class="chips" id="castModes" style="margin-bottom:12px"></div>
+      <div class="row" data-ctrl="castAmt"><label>Strength</label></div>
+      <div class="row" data-ctrl="castScale"><label>Scale</label></div>
+      <div class="row" data-ctrl="castX"><label>Position X</label></div>
+      <div class="row" data-ctrl="castY"><label>Position Y</label></div>
+</div>
+    </div>
+
+    <div class="group" data-panel>
+      <button class="phead" type="button" aria-expanded="false"><span>Finish</span><i class="caret"></i></button>
+      <div class="pbody">
+      <div class="row" data-ctrl="sat"><label>Saturation</label></div>
+      <div class="row" data-ctrl="contrast"><label>Contrast</label></div>
+      <div class="row" data-ctrl="highlights"><label>Highlights</label></div>
+      <div class="row" data-ctrl="shadows"><label>Shadows</label></div>
+      <div class="glabel" style="margin:14px 0 8px">Grain</div>
+      <div class="row"><label for="grainStyle">Tone</label>
+        <select id="grainStyle">
+          <option value="neutral">Neutral</option>
+          <option value="colored">Colored</option>
+          <option value="shadow">Shadow</option>
+        </select>
+      </div>
+      <div class="row" data-ctrl="grain"><label>Amount</label></div>
+      <div class="row" data-ctrl="grainSize"><label>Scale</label></div>
+</div>
+    </div>
+
+  </div>
+
+  <div id="railFoot">
+    <div class="btnrow">
+      <button class="act primary" id="copySvg">Copy SVG</button>
+      <button class="act" id="dlSvg">SVG</button>
+    </div>
+    <div class="btnrow">
+      <button class="act" id="png1">PNG 1×</button>
+      <button class="act" id="png2">PNG 2×</button>
+      <button class="act" id="png4">PNG 4×</button>
+    </div>
+    <div class="foot-note">Copy SVG, then paste onto a Figma canvas. Texture is written as Figma's own noise filter, so it lands as a live effect on the frame.</div>
+    <div class="colophon">Pilot, Inc. &copy; 2005—2026</div>
+  </div>
+</aside>
+
+<main id="stage">
+  <div id="preview"></div>
+  <div id="meta"><span id="mDim"></span><span id="mForm"></span><span id="mSeed"></span></div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ---------- color ---------- */
+function hexToRgb(h){
+  h=String(h).replace('#','').trim();
+  if(h.length===3)h=h.split('').map(c=>c+c).join('');
+  const n=parseInt(h,16);
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function rgbToHex(r,g,b){
+  const f=v=>clamp(Math.round(v),0,255).toString(16).padStart(2,'0');
+  return '#'+f(r)+f(g)+f(b);
+}
+function rgbToHsl(r,g,b){
+  r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h=0,s=0;const l=(mx+mn)/2;
+  if(mx!==mn){const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);
+    if(mx===r)h=(g-b)/d+(g<b?6:0);else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h/=6;}
+  return [h,s,l];
+}
+function hslToRgb(h,s,l){
+  h=((h%1)+1)%1;
+  if(s===0){const v=l*255;return[v,v,v];}
+  const q=l<.5?l*(1+s):l+s-l*s,p=2*l-q;
+  const f=t=>{t=((t%1)+1)%1;
+    if(t<1/6)return p+(q-p)*6*t;
+    if(t<1/2)return q;
+    if(t<2/3)return p+(q-p)*(2/3-t)*6;
+    return p;};
+  return [f(h+1/3)*255,f(h)*255,f(h-1/3)*255];
+}
+function mixHex(a,b,t){
+  const A=hexToRgb(a),B=hexToRgb(b);
+  return rgbToHex(A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,A[2]+(B[2]-A[2])*t);
+}
+/* the ground, lifted a couple of percent and nudged in hue — a shadow that is
+   very slightly not the same shadow everywhere */
+function shadowTone(){
+  const [r,g,b]=hexToRgb(col(0));
+  const [h,sa,l]=rgbToHsl(r,g,b);
+  const dir=l<0.5?1:-1;
+  const [R,G,B]=hslToRgb(h+0.028*dir,clamp(sa*0.9,0,1),clamp(l+0.034*dir,0,1));
+  return rgbToHex(R,G,B);
+}
+function lum(hex){const[r,g,b]=hexToRgb(hex);return 0.2126*r+0.7152*g+0.0722*b;}
+
+/* saturation is applied at render time so the stored palette stays intact */
+function col(i){
+  const hex=S.colors[i];
+  if(Math.abs(S.sat-1)<0.005 && Math.abs(S.contrast-1)<0.005
+     && Math.abs(S.highlights)<0.005 && Math.abs(S.shadows)<0.005)return hex;
+  const [r,g,b]=hexToRgb(hex);
+  const [h,s,l]=rgbToHsl(r,g,b);
+  let L=clamp(0.5+(l-0.5)*S.contrast,0,1);
+  /* photographic, not per-stop: each colour is lifted or pulled in proportion
+     to how bright it already is, so the sliders find the highlight and the
+     shadow wherever they happen to sit in the palette */
+  const wHi=clamp((L-0.42)/0.58,0,1), wLo=clamp((0.58-L)/0.58,0,1);
+  L=clamp(L+S.highlights*0.34*wHi+S.shadows*0.34*wLo,0,1);
+  const [R,G,B]=hslToRgb(h,clamp(s*S.sat,0,1),L);
+  return rgbToHex(R,G,B);
+}
+
+function waveFn(rng){
+  const parts=[{f:1,a:1},{f:2,a:.55},{f:3,a:.3}].map(p=>({f:p.f,a:p.a,ph:rng()*Math.PI*2}));
+  const norm=parts.reduce((s,p)=>s+p.a,0);
+  return t=>{let v=0;for(const p of parts)v+=p.a*Math.sin(t*p.f*Math.PI*2+p.ph);return v/norm;};
+}
+
+/* ---------- fixed structure ---------- */
+const FRAMES={'8:9':[960,1080],'16:9':[1920,1080],'1:1':[1080,1080],'9:16':[1080,1920],'Phone':[1179,2556]};
+const FORMS=[
+  ['field','Field','geo'],['arch','Arch','geo'],['vault','Vault','geo'],
+  ['portal','Portal','geo'],['plume','Plume','geo'],
+  ['wave','Wave','org'],['drape','Drape','org'],
+  ['mesh','Mesh','org'],['orb','Orb','org'],['smear','Smear','org'],['veil','Veil','org']
+];
+/* forms that compose their own masses instead of one inset shape */
+const REPLACE={mesh:1,orb:1};
+const DIRS=[['up','Top'],['down','Bottom'],['left','Left'],['right','Right']];
+const CASTS=[['none','None'],['shoji','Shoji'],['slat','Slat'],['dapple','Dapple'],['leaves','Leaves']];
+const CASTMODES=[['light','Light'],['shadow','Shadow']];
+const DRIFTDIRS=[['across','Across'],['along','Along'],['spin','Spin']];
+
+const PALETTES=[
+  {g:'room',n:'Dining Room', c:['#29131D','#99904C','#C6C6BA']},
+  {g:'room',n:'Gold Bar',    c:['#BD582D','#DA9835','#F1D8A5']},
+  {g:'room',n:"Member's Bar",c:['#420714','#ADB3C4','#C4C6A0']},
+  {g:'room',n:'Rosa Lounge', c:['#511C18','#7B191E','#F2B164']},
+  /* triads built around traditional Japanese colours */
+  {g:'trad',n:'Ai',       t:'\u85cd — indigo',            c:['#16283C','#35657F','#C6D8DE']},
+  {g:'trad',n:'Akane',    t:'\u831c — madder root',       c:['#3B0E14','#A03027','#E8C39E']},
+  {g:'trad',n:'Yamabuki', t:'\u5c71\u5439 — kerria gold',c:['#40270A','#D8A02D','#F5E3B0']},
+  {g:'trad',n:'Sakura',   t:'\u685c — cherry blossom',    c:['#4A2A33','#C98A9B','#F7E4E6']},
+  {g:'trad',n:'Matcha',   t:'\u62b9\u8336 — tea green',  c:['#1E2A1C','#6B7B44','#D6D9B0']},
+  {g:'trad',n:'Sumi',     t:'\u58a8 — ink',               c:['#141414','#4A4A48','#D8D5CC']},
+  {g:'trad',n:'Kobai',    t:'\u7d05\u6885 — plum blossom',c:['#35131F','#A24C63','#EFD3D8']},
+  {g:'trad',n:'Asagi',    t:'\u6d45\u8471 — pale leek',  c:['#123033','#3E8A87','#DCE9E2']},
+  {g:'trad',n:'Kakishibu',t:'\u67ff\u6e0b — persimmon',  c:['#3A1A10','#9C4A24','#E6C09A']},
+  {g:'trad',n:'Gunjo',    t:'\u7fa4\u9752 — ultramarine',c:['#14203F','#4C6CB3','#D6DCEF']}
+];
+
+/* one filter chassis, four grades of tooth — Figma exposes the same
+   baseFrequency / octaves knobs on its native noise effect */
+const TEXTURES={
+  /* baseFrequency 2 puts the noise period at half a pixel — right at the
+     sampling limit, where its rendered strength swings wildly with render scale.
+     0.55 puts it near two pixels: stable at any size, and the same in the
+     preview, the PNG and Figma. */
+  grain: {fx:0.85,  fy:0.85, oct:4, nGain:1.5}
+  /* Tooth, Washi and Mottle are parked — none of them held up next to Grain.
+     The engine reads this map by key, so re-adding a profile here and an option
+     to the Tone group's markup is all it takes to bring one back:
+       tooth: {fx:0.7, fy:0.7, oct:2, nGain:1.35},
+       washi: {fx:0.004, fy:0.55, oct:2, mono:true, nGain:1.05},
+       mottle:{fx:0.030, fy:0.030, oct:4, mono:true, nGain:0.6}          */
+};
+
+const S={
+  frame:'8:9', form:'field', dir:'up',
+  colors:['#29131D','#99904C','#C6C6BA'], mid:0.5, falloff:0.42, sat:1, contrast:1, highlights:0, shadows:0,
+  width:1, inset:0.068, blur:0.075,
+  organic:0.35, bloom:0.3, drift:0, seed:184,
+  cast:'none', castMode:'light', castAmt:0.45, castScale:1, castX:0, castY:0, driftDir:'across',
+  grain:0.07, grainSize:1, grainStyle:'neutral', texture:'grain',
+  ref:[]
+};
+
+/* every numeric control: raw range value, plus the scale used in the number box */
+const CTRLS=[
+  {id:'mid',      min:0.25,max:0.75,step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'falloff',  min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'sat',      min:0,   max:2,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'contrast', min:0.4, max:2,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'highlights',min:-1, max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'shadows',  min:-1,  max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'width',    min:0.3, max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'inset',    min:-0.10,max:0.16,step:0.005,scale:100,dec:0,unit:'%'},
+  {id:'blur',     min:0.03,max:0.38,step:0.005,scale:100,dec:0,unit:'%'},
+  {id:'organic',  min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'bloom',    min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'drift',    min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'castAmt',  min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'castScale',min:0.3, max:2.2, step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'castX',    min:-0.5,max:0.5, step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'castY',    min:-0.5,max:0.5, step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'grain',    min:0,   max:0.3, step:0.005,scale:100,dec:0,unit:'%'},
+  {id:'grainSize',min:0.3, max:3,   step:0.05, scale:1,  dec:2,unit:''}
+];
+
+/* ---------- geometry ---------- */
+const DIRVEC={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+
+function fieldBox(W,H){
+  /* A negative margin bleeds the field off the sides so no boundary reads,
+     while the ends of the ramp stay inside the frame — the light and the
+     ground both need to land on canvas. */
+  const pos=Math.max(0,S.inset);
+  const horiz=(S.dir==='left'||S.dir==='right');
+  const cross=S.inset*(horiz?H:W);          /* across the light axis — may go negative */
+  const along=pos*(horiz?W:H);              /* along the light axis — never negative */
+  let l,r,t,b;
+  if(horiz){l=along;r=along;t=cross;b=cross;}
+  else{l=cross;r=cross;t=along;b=along;}
+  const sv=pos*1.9*H, sh=pos*1.9*W;
+  if(S.dir==='up')b+=sv; else if(S.dir==='down')t+=sv;
+  else if(S.dir==='left')r+=sh; else l+=sh;
+  const bx={x:l,y:t,w:W-l-r,h:H-t-b};
+  /* Width narrows the field across the light axis, so any shape can run columnar */
+  if(S.width<0.999){
+    if(S.dir==='left'||S.dir==='right'){const nh=bx.h*S.width;bx.y+=(bx.h-nh)/2;bx.h=nh;}
+    else{const nw=bx.w*S.width;bx.x+=(bx.w-nw)/2;bx.w=nw;}
+  }
+  return bx;
+}
+
+/* unit space: u across the field, v from the lit end (0) to the dark end (1) */
+function unitOutline(form,ar){
+  const P=[];
+  const push=(u,v)=>P.push([u,v]);
+  const arc=(cu,cv,ru,rv,a0,a1,n)=>{for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;push(cu+Math.cos(a)*ru,cv+Math.sin(a)*rv);}};
+  const quad=(p0,c,p1,n)=>{for(let i=1;i<=n;i++){const t=i/n,m=1-t;
+    push(m*m*p0[0]+2*m*t*c[0]+t*t*p1[0], m*m*p0[1]+2*m*t*c[1]+t*t*p1[1]);}};
+
+  if(form==='ellipse'){arc(0.5,0.5,0.5,0.5,Math.PI/2,Math.PI/2+Math.PI*2,140);return P;}
+
+  if(form==='arch'){
+    const vs=clamp(0.5*ar,0.12,0.72);
+    push(0,1);push(1,1);push(1,vs);
+    arc(0.5,vs,0.5,vs,0,-Math.PI,70);
+    return P;
+  }
+  if(form==='vault'){
+    const vs=clamp(0.62*ar,0.18,0.82);
+    push(0,1);push(1,1);push(1,vs);
+    quad([1,vs],[1,vs*0.3],[0.5,0],40);
+    quad([0.5,0],[0,vs*0.3],[0,vs],40);
+    return P;
+  }
+  if(form==='portal'){
+    const v=clamp(0.42*ar,0.06,0.28);
+    push(0,1-v);
+    arc(0.5,1-v,0.5,v,Math.PI,0,50);
+    push(1,v);
+    arc(0.5,v,0.5,v,0,-Math.PI,50);
+    return P;
+  }
+  if(form==='lozenge'){
+    const ru=0.16, rv=clamp(0.16*ar,0.03,0.4);
+    push(ru,1);push(1-ru,1);
+    arc(1-ru,1-rv,ru,rv,Math.PI/2,0,18);
+    push(1,rv);
+    arc(1-ru,rv,ru,rv,0,-Math.PI/2,18);
+    push(ru,0);
+    arc(ru,rv,ru,rv,-Math.PI/2,-Math.PI,18);
+    push(0,1-rv);
+    arc(ru,1-rv,ru,rv,Math.PI,Math.PI/2,18);
+    return P;
+  }
+  if(form==='blade'){
+    push(0.22,1);push(0.78,1);push(1,0);push(0,0);
+    return P;
+  }
+  /* --- shapes that carry their own movement --- */
+  if(form==='wave'){
+    /* Both edges share the sway, so the band keeps its width and serpentines
+       rather than pinching. The envelope lands the caps flush with the frame,
+       and the Organic dial drives how far it travels. */
+    const n=110, a=0.045+S.organic*0.10;
+    const off=v=>a*Math.sin(v*Math.PI*2*1.5)*Math.pow(Math.sin(Math.PI*v),1.2);
+    const Lp=[],Rp=[];
+    for(let i=0;i<=n;i++){const v=i/n;const o=off(v);Lp.push([o,v]);Rp.push([1+o,v]);}
+    Lp.forEach(q=>push(q[0],q[1]));
+    for(let i=n;i>=0;i--)push(Rp[i][0],Rp[i][1]);
+    return P;
+  }
+  if(form==='drape'){
+    /* two swags: the hem hangs at the sides and lifts between them */
+    const n=90, dep=0.11+S.organic*0.10;
+    const hem=u=>1-dep*(0.5-0.5*Math.cos(u*Math.PI*4));
+    push(0,0);push(1,0);
+    for(let i=n;i>=0;i--){const u=i/n;push(u,hem(u));}
+    return P;
+  }
+  if(form==='plume'){
+    const n=72, narrow=0.32;
+    const half=v=>0.5*(1-(1-narrow)*Math.pow(v,1.4));
+    const Lp=[],Rp=[];
+    for(let i=0;i<=n;i++){const v=i/n;Lp.push([0.5-half(v),v]);Rp.push([0.5+half(v),v]);}
+    Lp.forEach(q=>push(q[0],q[1]));
+    for(let i=n;i>=0;i--)push(Rp[i][0],Rp[i][1]);
+    return P;
+  }
+  if(form==='petal'){
+    const n=80;
+    const half=v=>0.5*Math.pow(Math.sin(Math.PI*v),0.6);
+    const Lp=[],Rp=[];
+    for(let i=0;i<=n;i++){const v=i/n;Lp.push([0.5-half(v),v]);Rp.push([0.5+half(v),v]);}
+    Lp.forEach(q=>push(q[0],q[1]));
+    for(let i=n;i>=0;i--)push(Rp[i][0],Rp[i][1]);
+    return P;
+  }
+  push(0,1);push(1,1);push(1,0);push(0,0);   /* field, column */
+  return P;
+}
+
+function mapUnit(bx,dir){
+  const {x,y,w,h}=bx;
+  if(dir==='up')   return (u,v)=>[x+u*w, y+v*h];
+  if(dir==='down') return (u,v)=>[x+u*w, y+(1-v)*h];
+  if(dir==='left') return (u,v)=>[x+v*w, y+u*h];
+  return               (u,v)=>[x+(1-v)*w, y+u*h];
+}
+
+function resample(pts,N){
+  const n=pts.length, seg=[], cum=[0];
+  for(let i=0;i<n;i++){
+    const a=pts[i], b=pts[(i+1)%n];
+    const L=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    seg.push(L); cum.push(cum[i]+L);
+  }
+  const total=cum[n]||1, out=[];
+  let j=0;
+  for(let i=0;i<N;i++){
+    const d=(i/N)*total;
+    while(j<n-1 && cum[j+1]<d)j++;
+    const t=seg[j]?(d-cum[j])/seg[j]:0;
+    const a=pts[j], b=pts[(j+1)%n];
+    out.push([a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]);
+  }
+  return out;
+}
+
+function fieldOutline(bx,amp,rng){
+  const horiz=(S.dir==='left'||S.dir==='right');
+  const uLen=horiz?bx.h:bx.w, vLen=horiz?bx.w:bx.h;
+  const m=mapUnit(bx,S.dir);
+  const raw=unitOutline(S.form,uLen/vLen).map(p=>m(p[0],p[1]));
+  const pts=resample(raw,220);
+  if(amp<0.5)return pts;
+  const wv=waveFn(rng);
+  const cx=bx.x+bx.w/2, cy=bx.y+bx.h/2;
+  const N=pts.length, out=[];
+  for(let i=0;i<N;i++){
+    const a=pts[(i+2)%N], b=pts[(i-2+N)%N];
+    let nx=a[1]-b[1], ny=-(a[0]-b[0]);
+    const L=Math.hypot(nx,ny)||1; nx/=L; ny/=L;
+    const p=pts[i];
+    if(nx*(p[0]-cx)+ny*(p[1]-cy)<0){nx=-nx;ny=-ny;}
+    const d=amp*wv(i/N);
+    out.push([p[0]+nx*d, p[1]+ny*d]);
+  }
+  return out;
+}
+function toPath(pts){
+  let s='M';
+  for(let i=0;i<pts.length;i++)s+=(i?'L':'')+pts[i][0].toFixed(1)+' '+pts[i][1].toFixed(1);
+  return s+'Z';
+}
+
+/* ---------- svg ---------- */
+function blurFilter(id,sd,x,y,w,h,sdy){
+  return `<filter id="${id}" x="${x.toFixed(0)}" y="${y.toFixed(0)}" width="${w.toFixed(0)}" height="${h.toFixed(0)}" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="${(sdy==null||Math.abs(sdy-sd)<0.05)?sd.toFixed(1):sd.toFixed(1)+' '+sdy.toFixed(1)}" result="effect1_foregroundBlur"/>
+</filter>`;
+}
+const GRAIN_END=0.30;   /* how much grain survives at either end of the range */
+const DITHER="1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
+function noiseFilter(id,W,H,tex,scale,seed,style){
+  const t=TEXTURES[tex]||TEXTURES.grain;
+  const fx=(t.fx/scale).toFixed(3), fy=(t.fy/scale).toFixed(3);
+  const head=`<filter id="${id}" x="0" y="0" width="${W}" height="${H}" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="${fx} ${fy}" stitchTiles="stitch" numOctaves="${t.oct}" result="noise" seed="${seed}" />`;
+  if(style==='shadow'||t.mono){
+    return head+`
+<feColorMatrix in="noise" type="luminanceToAlpha" result="alphaNoise" />
+<feComponentTransfer in="alphaNoise" result="coloredNoise1">
+<feFuncA type="discrete" tableValues="${DITHER}"/>
+</feComponentTransfer>
+<feComposite operator="in" in2="shape" in="coloredNoise1" result="noise1Clipped" />
+<feFlood flood-color="rgba(0, 0, 0, 0.25)" result="color1Flood" />
+<feComposite operator="in" in2="noise1Clipped" in="color1Flood" result="color1" />
+<feMerge result="effect1_noise">
+<feMergeNode in="shape" />
+<feMergeNode in="color1" />
+</feMerge>
+</filter>`;
+  }
+  return head+`
+<feComponentTransfer in="noise" result="coloredNoise1">
+<feFuncR type="linear" slope="2" intercept="-0.5" />
+<feFuncG type="linear" slope="2" intercept="-0.5" />
+<feFuncB type="linear" slope="2" intercept="-0.5" />
+<feFuncA type="discrete" tableValues="${DITHER}"/>
+</feComponentTransfer>
+<feComposite operator="in" in2="shape" in="coloredNoise1" result="noise1Clipped" />
+<feMerge result="effect1_noise">
+<feMergeNode in="shape" />
+<feMergeNode in="noise1Clipped" />
+</feMerge>
+</filter>`;
+}
+
+function buildSVG(){
+  const [W,H]=FRAMES[S.frame];
+  const rng=mulberry32((S.seed*2654435761)>>>0);
+  /* Figma names its own filter and gradient ids this way; matching the
+     convention is what lets blur and noise return as live effects on paste */
+  const sfx='_'+(1000+(S.seed*7)%9000)+'_'+(10+(S.seed%80));
+  const bx=fieldBox(W,H);
+  const D=Math.min(W,H);
+  const sd=S.blur*D/2;
+  const amp=S.organic*0.05*D;
+  const defs=[], body=[];
+
+  const base=DIRVEC[S.dir];
+  const tilt=(rng()-0.5)*S.organic*0.5;
+  const ax=base[0]*Math.cos(tilt)-base[1]*Math.sin(tilt);
+  const ay=base[0]*Math.sin(tilt)+base[1]*Math.cos(tilt);
+  const cx=bx.x+bx.w/2, cy=bx.y+bx.h/2;
+  const L=Math.abs(ax)*bx.w+Math.abs(ay)*bx.h;
+
+  /* Falloff drives the whole curve: light holds near its source and then drops
+     away steeply, the ground holds its own depth, and the two shoulder stops
+     bend the middle so the ramp stops reading as a linear blend. */
+  const fo=clamp(S.falloff,0,1);
+  /* A floor on the light plateau so highlights never wash out even at 0, and
+     tighter ceilings so a high setting reads as decay rather than as a band. */
+  const hL=0.05+fo*0.20, hG=fo*0.20;
+  const lightStart=clamp(1-hL,Math.min(0.985,S.mid+0.06),0.995);
+  const groundEnd=clamp(hG,0,Math.max(0.005,S.mid-0.06));
+  let ramp=`<stop stop-color="${col(0)}"/>`;
+  if(hG>0.005)ramp+=`\n<stop offset="${groundEnd.toFixed(3)}" stop-color="${col(0)}"/>`;
+  if(true){
+    /* the shoulders bend further as falloff rises — the ground lets go slowly,
+       the light drops away fast once it leaves its plateau */
+    const sh=groundEnd+(S.mid-groundEnd)*0.34;
+    ramp+=`\n<stop offset="${sh.toFixed(3)}" stop-color="${mixHex(col(0),col(1),0.30-fo*0.16)}"/>`;
+  }
+  ramp+=`\n<stop offset="${S.mid}" stop-color="${col(1)}"/>`;
+  if(true){
+    const sh2=S.mid+(lightStart-S.mid)*0.66;
+    ramp+=`\n<stop offset="${sh2.toFixed(3)}" stop-color="${mixHex(col(1),col(2),0.70-fo*0.26)}"/>`;
+  }
+  if(hL>0.005)ramp+=`\n<stop offset="${lightStart.toFixed(3)}" stop-color="${col(2)}"/>`;
+  ramp+=`\n<stop offset="1" stop-color="${col(2)}"/>`;
+  defs.push(`<linearGradient id="paint0_linear${sfx}" gradientUnits="userSpaceOnUse" x1="${(cx-ax*L/2).toFixed(0)}" y1="${(cy-ay*L/2).toFixed(0)}" x2="${(cx+ax*L/2).toFixed(0)}" y2="${(cy+ay*L/2).toFixed(0)}">
+${ramp}
+</linearGradient>`);
+
+  /* shared id counters so composed masses never collide with the field or the noise */
+  let fi=2, gi=1;
+  /* Shadow depth. A very large, very soft mass of a slightly lifted, hue-shifted
+     ground, weighted away from the light. It sits at a few percent of luminance
+     difference — below the threshold you would consciously notice — so that the
+     dark reads as volume rather than as an empty fill. Deliberately has no
+     control: anything calibrated to be imperceptible stops working the moment
+     it can be pushed. */
+  /* Drift stretches the blur across the light axis, so the softness reads as
+     travel rather than as distance. Direction comes from Light from — no extra
+     control for it. */
+  /* Motion is built from geometry, not from an anisotropic blur radius. Every
+     blur here stays a single symmetric value and every shape is emitted with its
+     coordinates already baked in — no transform attributes, no nested groups —
+     because those are the two things an importer is most likely to drop. */
+  const motion=S.drift>0.01;
+  const lightIsHoriz=(S.dir==='left'||S.dir==='right');
+  const smearHoriz=(S.driftDir==='across')?!lightIsHoriz:lightIsHoriz;
+  const reach=D*0.42*S.drift;
+  let COPIES=[{sc:1,tx:0,ty:0,op:1}];
+  if(motion){
+    COPIES=[];
+    if(S.driftDir==='spin'){
+      /* rotational blur: the shape is sampled through a small arc about the
+         frame centre, so everything smears on a curve rather than outward */
+      const n=5+Math.round(S.drift*5), sweep=S.drift*34;
+      for(let k=0;k<n;k++){
+        const t=n>1?(k/(n-1))*2-1:0;
+        COPIES.push({sc:1,tx:0,ty:0,rot:t*sweep/2,
+                     op:Math.abs(t)<1e-6?1:0.32+0.44*(1-Math.abs(t))});
+      }
+    }else{
+      const n=5+Math.round(S.drift*4);
+      for(let k=0;k<n;k++){
+        const t=n>1?(k/(n-1))*2-1:0, off=t*reach;
+        COPIES.push({sc:1,tx:smearHoriz?off:0,ty:smearHoriz?0:off,
+                     op:Math.abs(t)<1e-6?1:0.34+0.42*(1-Math.abs(t))});
+      }
+    }
+  }
+  const ORDER=COPIES.slice().sort((a,b)=>a.op-b.op);   /* faintest first */
+  const motionPad=motion?(S.driftDir==='spin'?Math.hypot(W,H)/2*Math.sin(S.drift*34*Math.PI/360)*1.25:reach):0;
+
+  const bake=(pts,cp,ox,oy)=>{
+    const a=(cp.rot||0)*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a);
+    return pts.map(q=>{
+      const dx=(q[0]-ox)*cp.sc, dy=(q[1]-oy)*cp.sc;
+      return [ox+dx*ca-dy*sa+cp.tx, oy+dx*sa+dy*ca+cp.ty];
+    });
+  };
+  const rotPts=(pts,deg,ox,oy)=>{
+    const a=deg*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a);
+    return pts.map(q=>{const dx=q[0]-ox,dy=q[1]-oy;return [ox+dx*ca-dy*sa, oy+dx*sa+dy*ca];});
+  };
+  const quadPath=pts=>'M'+pts.map(q=>q[0].toFixed(1)+' '+q[1].toFixed(1)).join('L')+'Z';
+  const addBlur=(sdv,x,y,w,h)=>{
+    const id='filter'+(fi++)+'_f'+sfx, pd=sdv*3;
+    defs.push(blurFilter(id,sdv,x-pd,y-pd,w+2*pd,h+2*pd));
+    return id;
+  };
+  const addRadial=(rx,ry,r,stops)=>{
+    const id='paint'+(gi++)+'_radial'+sfx;
+    defs.push(`<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${rx.toFixed(0)}" cy="${ry.toFixed(0)}" r="${Math.max(1,r).toFixed(0)}">${stops}</radialGradient>`);
+    return id;
+  };
+  const addLinear=(x1,y1,x2,y2,stops)=>{
+    const id='paint'+(gi++)+'_linear'+sfx;
+    defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x1.toFixed(0)}" y1="${y1.toFixed(0)}" x2="${x2.toFixed(0)}" y2="${y2.toFixed(0)}">${stops}</linearGradient>`);
+    return id;
+  };
+  const blob=(bcx,bcy,r,stops,sdv,op,moving)=>{
+    const pad=moving?motionPad:0;
+    const fid=addBlur(sdv,bcx-r-pad,bcy-r-pad,2*(r+pad),2*(r+pad));
+    for(const cp of (moving?ORDER:[{sc:1,tx:0,ty:0,op:1}])){
+      const [[nx,ny]]=bake([[bcx,bcy]],cp,cx,cy), nr=r*cp.sc;
+      const gid=addRadial(nx,ny,nr,stops);
+      const o=op*cp.op;
+      body.push(`<g filter="url(#${fid})"${o<0.999?` opacity="${o.toFixed(3)}"`:''}>\n<circle cx="${nx.toFixed(0)}" cy="${ny.toFixed(0)}" r="${nr.toFixed(0)}" fill="url(#${gid})"/>\n</g>`);
+    }
+  };
+
+  (function shadowDepth(){
+    const tone=shadowTone();
+    /* pushed well off to one side and only about half the frame across, so its
+       falloff happens inside the visible dark rather than lifting all of it */
+    const jit=(rng()-0.5)*0.5*(0.5+S.organic);
+    const scx=W/2-ax*W*0.34+(-ay)*W*(0.30+jit);
+    const scy=H/2-ay*H*0.34+(ax)*H*(0.30+jit);
+    const r=Math.max(W,H)*(0.46+rng()*0.16);
+    blob(scx,scy,r,
+      `<stop stop-color="${tone}"/>
+<stop offset="0.42" stop-color="${tone}" stop-opacity="0.75"/>
+<stop offset="1" stop-color="${tone}" stop-opacity="0"/>`, sd*1.5, 1);
+  })();
+
+  if(S.form==='orb'){
+    /* one mass far larger than the frame, drifted toward the light */
+    const off=0.08+rng()*0.18;
+    const ocx=W/2+ax*W*off*(1+S.organic), ocy=H/2+ay*H*off*(1+S.organic);
+    const r=Math.max(W,H)*(0.58+rng()*0.24)*clamp(S.width,0.4,1);
+    const core=clamp(0.06+hL*0.9,0.05,0.5);
+    blob(ocx,ocy,r,
+      `<stop stop-color="${col(2)}"/>
+<stop offset="${core.toFixed(3)}" stop-color="${col(2)}"/>
+<stop offset="${clamp(core+0.34,0.3,0.9).toFixed(3)}" stop-color="${col(1)}"/>
+<stop offset="1" stop-color="${col(0)}"/>`, sd, 1, true);
+  }
+  else if(S.form==='mesh'){
+    /* One light mass leads, the rest are mid and ground so the field keeps its
+       depth — an even mix of all three stops just floods the frame pale. */
+    const n=3+Math.round(S.organic*3);
+    for(let i=0;i<n;i++){
+      const isLead=(i===0);
+      const roll=rng();
+      const ci=isLead?2:(roll<0.46?1:(roll<0.80?0:2));
+      const c=col(ci);
+      const across=(rng()-0.5)*1.15*(0.55+S.organic*0.8);
+      const bias=(0.06+rng()*0.46)*(isLead?1:(i%2?0.8:-0.7));
+      const bcx=W/2+ax*W*bias+(-ay)*W*across;
+      const bcy=H/2+ay*H*bias+(ax)*H*across;
+      const r=D*(0.22+rng()*0.28)*(0.85+S.organic*0.4);
+      const peak=isLead?0.92:(ci===2?0.6:0.8);
+      blob(bcx,bcy,r,
+        `<stop stop-color="${c}" stop-opacity="${peak.toFixed(2)}"/>
+<stop offset="0.40" stop-color="${c}" stop-opacity="${(peak*0.68).toFixed(2)}"/>
+<stop offset="1" stop-color="${c}" stop-opacity="0"/>`, sd*1.1, isLead?0.95:(0.55+rng()*0.3));
+    }
+  }
+  else {
+    const pad=sd*3+motionPad;
+    defs.push(blurFilter('filter0_f'+sfx,sd,bx.x-pad-amp,bx.y-pad-amp,bx.w+2*(pad+amp),bx.h+2*(pad+amp)));
+    if(!motion && amp<0.5 && S.form==='field'){
+      body.push(`<g filter="url(#filter0_f${sfx})">\n<rect x="${bx.x.toFixed(0)}" y="${bx.y.toFixed(0)}" width="${bx.w.toFixed(0)}" height="${bx.h.toFixed(0)}" fill="url(#paint0_linear${sfx})"/>\n</g>`);
+    }else{
+      const pts=fieldOutline(bx,amp,rng);
+      for(const cp of ORDER){
+        body.push(`<g filter="url(#filter0_f${sfx})"${cp.op<0.999?` opacity="${cp.op.toFixed(3)}"`:''}>\n<path d="${toPath(bake(pts,cp,cx,cy))}" fill="url(#paint0_linear${sfx})"/>\n</g>`);
+      }
+    }
+
+    if(S.form==='smear'){
+      /* thin bands laid across the light axis and rotated a few degrees, so the
+         blur reads as travel rather than as softness */
+      const n=3+Math.round(S.organic*3.5);
+      const alongX=Math.abs(ax)>Math.abs(ay);
+      for(let i=0;i<n;i++){
+        /* Bands are spread evenly with bounded jitter rather than free jitter,
+           so two never land on top of each other and leave a gap elsewhere. */
+        const t=(i+0.5)/n+(rng()-0.5)*(0.55/n);
+        const ci=t>0.6?2:(t>0.28?1:0);
+        const c=col(ci);
+        const thick=D*(0.09+rng()*0.15)*(0.7+S.organic*0.55);
+        const px=cx-ax*L/2+ax*L*t, py=cy-ay*L/2+ay*L*t;
+        /* run well past the frame so a rotated band never shows an end */
+        const ext=2.6, offX=-W*(ext-1)/2, offY=-H*(ext-1)/2;
+        const x=alongX?px-thick/2:offX, y=alongX?offY:py-thick/2;
+        const w=alongX?thick:W*ext, h=alongX?H*ext:thick;
+        /* tighter arc at high Organic — past a few degrees a full-width band
+           reads as a slash across the frame rather than as travel */
+        const deg=(rng()-0.5)*2*(1.5+S.organic*4.5);
+        const mx2=x+w/2, my2=y+h/2;
+        const corners=rotPts([[x,y],[x+w,y],[x+w,y+h],[x,y+h]],deg,mx2,my2);
+        const ge=rotPts(alongX?[[x,my2],[x+w,my2]]:[[mx2,y],[mx2,y+h]],deg,mx2,my2);
+        const gid=addLinear(ge[0][0],ge[0][1],ge[1][0],ge[1][1],
+          `<stop stop-color="${c}" stop-opacity="0"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/>`);
+        /* the blur has to scale with the band, or a thin one renders as a bar */
+        const fid=addBlur(Math.max(sd*0.30,thick*0.30),-W*0.8,-H*0.8,W*2.6,H*2.6);
+        const op=(0.40+rng()*0.36)*(ci===0?0.6:1);
+        body.push(`<g filter="url(#${fid})" opacity="${op.toFixed(2)}">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
+      }
+    }
+
+    if(S.form==='veil'){
+      /* Folds read as a family, not as scattered slashes: one base angle for the
+         set, each sheet tapered so it has a near and a far edge, and centre lines
+         spread across the frame so every one of them actually crosses it. */
+      const n=2+Math.round(S.organic*2.4);
+      /* Folds hang with the light rather than at an arbitrary angle, and spread
+         across the axis perpendicular to it — so a side-lit frame gets sheets
+         running the other way instead of the same vertical bars. */
+      const lightHoriz=(S.dir==='left'||S.dir==='right');
+      const base=(lightHoriz?90:0)+(rng()-0.5)*46;
+      const span=Math.max(W,H)*2.9;
+      for(let i=0;i<n;i++){
+        const ci=[2,1,2,0][i%4];
+        const c=col(ci);
+        const deg=base+(rng()-0.5)*(9+S.organic*16);
+        const wTop=Math.max(W,H)*(0.15+rng()*0.19)*(0.78+S.organic*0.5);
+        const wBot=wTop*(0.55+rng()*0.95);
+        const t=(i+0.5)/n+(rng()-0.5)*(0.5/n);
+        const px=lightHoriz?W/2:W*t, py=lightHoriz?H*t:H/2;
+        const corners=rotPts([[px-wTop/2,py-span/2],[px+wTop/2,py-span/2],
+                              [px+wBot/2,py+span/2],[px-wBot/2,py+span/2]],deg,px,py);
+        const mw=Math.max(wTop,wBot);
+        const ge=rotPts([[px-mw/2,py],[px+mw/2,py]],deg,px,py);
+        const gid=addLinear(ge[0][0],ge[0][1],ge[1][0],ge[1][1],
+          `<stop stop-color="${c}" stop-opacity="0"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/>`);
+        /* soften in proportion to the sheet, and let a ground-toned fold sit
+           back — at full strength it reads as a tear rather than as depth */
+        const fid=addBlur(Math.max(sd*0.45,mw*0.22),-W*0.8,-H*0.8,W*2.6,H*2.6);
+        const op=(0.30+rng()*0.26)*(ci===0?0.45:1);
+        body.push(`<g filter="url(#${fid})" opacity="${op.toFixed(2)}">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
+      }
+    }
+  }
+
+  if(S.cast!=='none' && S.castAmt>0.01){
+    /* One path, one gradient, one blur — a single Figma layer, not forty
+       rectangles. The fill fades along the light axis so the pattern lands on
+       the lit surface and dies in the dark, instead of floating over the frame. */
+    const shadowCast=(S.castMode==='shadow');
+    const c=shadowCast?shadowTone():col(2);
+    const rot=(rng()-0.5)*(6+S.organic*14);
+    const csc=clamp(S.castScale,0.3,2.2);
+    const ca2=Math.cos(rot*Math.PI/180), sa2=Math.sin(rot*Math.PI/180);
+    const ctx2=W/2+S.castX*W, cty2=H/2+S.castY*H;
+    /* scale and rotate about the frame centre, then offset — resolved here into
+       plain coordinates so the exported path needs no transform attribute */
+    const T=(x,y)=>{
+      const dx=(x-W/2)*csc, dy=(y-H/2)*csc;
+      return [ctx2+dx*ca2-dy*sa2, cty2+dx*sa2+dy*ca2];
+    };
+    const shapes=[];
+    const R=(x,y,w,h)=>shapes.push([[x,y],[x+w,y],[x+w,y+h],[x,y+h]].map(q=>T(q[0],q[1])));
+    if(S.cast==='shoji'){
+      const cols=3+Math.round(rng()*2), rows=4+Math.round(rng()*2);
+      const gw=W*(0.62+rng()*0.3), gh=H*(0.5+rng()*0.32);
+      const ox=W/2-gw/2+(rng()-0.5)*W*0.2-ax*W*0.10;
+      const oy=H/2-gh/2+(rng()-0.5)*H*0.2-ay*H*0.10;
+      const mullion=Math.min(gw/cols,gh/rows)*(0.10+S.organic*0.06);
+      for(let i=0;i<cols;i++)for(let j=0;j<rows;j++)
+        R(ox+i*gw/cols+mullion/2, oy+j*gh/rows+mullion/2, gw/cols-mullion, gh/rows-mullion);
+    }else if(S.cast==='slat'){
+      const n=5+Math.round(rng()*4+S.organic*3);
+      const alongX=Math.abs(ax)>Math.abs(ay);
+      const spread=(alongX?W:H)*(0.65+rng()*0.35);
+      const start=(alongX?W:H)/2-spread/2;
+      const gap=spread/n, bar=gap*(0.42+rng()*0.22);
+      for(let i=0;i<n;i++){
+        const t=start+i*gap;
+        if(alongX)R(t,-H*0.25,bar,H*1.5); else R(-W*0.25,t,W*1.5,bar);
+      }
+    }else if(S.cast==='leaves'){
+      /* komorebi: a few boughs entering from one edge, foliage clustered along
+         their length. Branches taper, leaves are pointed lenses turned roughly
+         with the bough they hang from, so it reads as growth rather than as
+         scattered blobs. */
+      const M=Math.min(W,H);
+      const orig=[W*(0.08+rng()*0.84), -H*0.10];
+      const nb=3+Math.round(rng()*2+S.organic*2);
+      for(let i=0;i<nb;i++){
+        const ang=(-58+((i+0.5)/nb)*116+(rng()-0.5)*24)*Math.PI/180;
+        const len=Math.max(W,H)*(0.55+rng()*0.55);
+        const dx2=Math.sin(ang), dy2=Math.cos(ang);
+        const nx2=dy2, ny2=-dx2;
+        const bw=M*(0.016+rng()*0.020);
+        const ex=orig[0]+dx2*len, ey=orig[1]+dy2*len;
+        shapes.push([[orig[0]+nx2*bw,orig[1]+ny2*bw],[orig[0]-nx2*bw,orig[1]-ny2*bw],
+                     [ex-nx2*bw*0.22,ey-ny2*bw*0.22],[ex+nx2*bw*0.22,ey+ny2*bw*0.22]]
+                    .map(q=>T(q[0],q[1])));
+        const nl=5+Math.round(rng()*5+S.organic*6);
+        for(let j=0;j<nl;j++){
+          const t=0.22+rng()*0.80;
+          const lx=orig[0]+dx2*len*t+(rng()-0.5)*M*0.13;
+          const ly=orig[1]+dy2*len*t+(rng()-0.5)*M*0.13;
+          const lr=M*(0.028+rng()*0.042);
+          const la=ang+(rng()-0.5)*1.7;
+          const cl=Math.cos(la), sl=Math.sin(la);
+          const seg=12, lp=[];
+          for(let k=0;k<seg;k++){
+            const u=k/seg*Math.PI*2;
+            const su=Math.sin(u);
+            const ex2=lr*Math.cos(u), ey2=lr*0.46*Math.sign(su)*Math.pow(Math.abs(su),1.5);
+            lp.push(T(lx+ex2*cl-ey2*sl, ly+ex2*sl+ey2*cl));
+          }
+          shapes.push(lp);
+        }
+      }
+    }else{
+      const n=6+Math.round(rng()*4+S.organic*4);
+      for(let i=0;i<n;i++){
+        const px=W*(0.08+rng()*0.84), py=H*(0.08+rng()*0.84);
+        const rr=Math.min(W,H)*(0.045+rng()*0.075);
+        const seg=14, pts=[];
+        for(let k=0;k<seg;k++){
+          const a2=k/seg*Math.PI*2, kk=1+(rng()-0.5)*(0.35+S.organic*0.5);
+          pts.push(T(px+Math.cos(a2)*rr*kk, py+Math.sin(a2)*rr*kk*0.82));
+        }
+        shapes.push(pts);
+      }
+    }
+    /* A light cast screens onto the lit surface and fades into the dark; a
+       shadow cast multiplies and fades the other way, so the bars land where
+       there is something for them to fall across. */
+    const peak=clamp(0.55+S.castAmt*0.55,0,1);
+    const gid=shadowCast
+      ? addLinear(cx-ax*L*0.55,cy-ay*L*0.55,cx+ax*L*0.62,cy+ay*L*0.62,
+          `<stop stop-color="${c}" stop-opacity="0"/><stop offset="0.45" stop-color="${c}" stop-opacity="${(peak*0.55).toFixed(2)}"/><stop offset="1" stop-color="${c}" stop-opacity="${peak.toFixed(2)}"/>`)
+      : addLinear(cx+ax*L*0.55,cy+ay*L*0.55,cx-ax*L*0.62,cy-ay*L*0.62,
+          `<stop stop-color="${c}" stop-opacity="${peak.toFixed(2)}"/><stop offset="0.55" stop-color="${c}" stop-opacity="${(peak*0.42).toFixed(2)}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/>`);
+    const fid=addBlur(sd*(0.52+S.organic*0.34),-W*0.6,-H*0.6,W*2.2,H*2.2);
+    const castOp=clamp(0.25+S.castAmt*0.75,0,1);
+    for(const cp of ORDER){
+      const d=shapes.map(sh=>quadPath(bake(sh,cp,cx,cy))).join('');
+      const o=castOp*cp.op;
+      body.push(`<g filter="url(#${fid})" opacity="${o.toFixed(3)}" style="mix-blend-mode:${shadowCast?'multiply':'screen'}">\n<path d="${d}" fill="url(#${gid})"/>\n</g>`);
+    }
+  }
+
+  if(S.bloom>0.01){
+    const n=1+Math.round(S.bloom*1.6);
+    const bsd=sd*1.7;
+    for(let i=0;i<n;i++){
+      const along=0.18+rng()*0.22, across=(rng()-0.5)*0.5;
+      const px=cx+ax*L*along+(-ay)*bx.w*across;
+      const py=cy+ay*L*along+(ax)*bx.h*across;
+      const r=D*(0.20+rng()*0.14)*(0.7+S.bloom*0.6);
+      blob(px,py,r,
+        `<stop stop-color="${col(2)}" stop-opacity="${(0.28+S.bloom*0.34).toFixed(2)}"/>
+<stop offset="1" stop-color="${col(2)}" stop-opacity="0"/>`, bsd, 1);
+    }
+  }
+
+  let grain='';
+  if(S.grain>0.002){
+    defs.push(noiseFilter('filter1_n'+sfx,W,H,S.texture,S.grainSize,S.seed,S.grainStyle));
+    const gain=(TEXTURES[S.texture]||TEXTURES.grain).nGain||1.5;
+    const neutral=(S.grainStyle==='neutral');
+    /* The plate carries a ramp instead of a flat fill. The filter already clips
+       the noise to the plate's alpha, so grain thins out as it nears the light
+       — texture where the eye is straining, clean highlights — and it costs no
+       new filter primitive, only a gradient Figma already understands. */
+    const pc=neutral?'#808080':col(0);
+    const nId='paintN_linear'+sfx;
+    /* Texture belongs to the midtones. Weighted to full in the middle of the
+       ramp and eased off at both ends, so it neither veils the highlight nor
+       lifts the shadow — the two places it was flattening the image. */
+    defs.push(`<linearGradient id="${nId}" gradientUnits="userSpaceOnUse" x1="${(cx-ax*L/2).toFixed(0)}" y1="${(cy-ay*L/2).toFixed(0)}" x2="${(cx+ax*L/2).toFixed(0)}" y2="${(cy+ay*L/2).toFixed(0)}">
+<stop stop-color="${pc}" stop-opacity="${GRAIN_END}"/>
+<stop offset="${clamp(S.mid,0.2,0.8).toFixed(2)}" stop-color="${pc}"/>
+<stop offset="1" stop-color="${pc}" stop-opacity="${GRAIN_END}"/>
+</linearGradient>`);
+    grain=`<g filter="url(#filter1_n${sfx})">
+<rect width="${W}" height="${H}" fill="url(#${nId})" fill-opacity="${clamp(neutral?S.grain*gain:S.grain,0,1).toFixed(3)}" style="mix-blend-mode:${neutral?'soft-light':'multiply'}"/>
+</g>`;
+  }
+
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="${W}" height="${H}" fill="${col(0)}"/>
+${body.join('\n')}
+${grain}
+<defs>
+${defs.join('\n')}
+</defs>
+</svg>`;
+}
+
+/* ---------- render ---------- */
+function draw(){
+  const [W,H]=FRAMES[S.frame];
+  $('preview').innerHTML=buildSVG();
+  $('mDim').textContent=W+'×'+H;
+  $('mForm').textContent=(FORMS.find(f=>f[0]===S.form)||['','—'])[1];
+  $('mSeed').textContent='seed '+S.seed;
+}
+let raf=null;
+const schedule=()=>{if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(draw);};
+
+/* ---------- history ---------- */
+const KEYS=['frame','form','dir','colors','mid','falloff','sat','contrast','highlights','shadows','width','inset','blur','organic','bloom','drift','driftDir','cast','castMode','castAmt','castScale','castX','castY','seed','grain','grainSize','grainStyle','texture','ref'];
+function snap(){const o={};KEYS.forEach(k=>o[k]=S[k]);return JSON.stringify(o);}
+const DEFAULT_SNAP=snap();
+let baseline=snap(), undoStack=[], redoStack=[];
+function commit(){
+  const now=snap();
+  if(now===baseline)return;
+  undoStack.push(baseline);
+  if(undoStack.length>80)undoStack.shift();
+  baseline=now; redoStack.length=0; updateHist();
+}
+function restore(str){
+  const o=JSON.parse(str);
+  KEYS.forEach(k=>{S[k]=Array.isArray(o[k])?o[k].slice():o[k];});
+  baseline=str; syncAll(); draw(); updateHist();
+}
+function undo(){
+  if(!undoStack.length)return;
+  redoStack.push(baseline);
+  restore(undoStack.pop());
+  toast('Undo');
+}
+function redo(){
+  if(!redoStack.length)return;
+  undoStack.push(baseline);
+  restore(redoStack.pop());
+  toast('Redo');
+}
+function updateHist(){
+  $('undo').disabled=!undoStack.length;
+  $('redo').disabled=!redoStack.length;
+}
+document.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if((e.metaKey||e.ctrlKey)&&k==='z'){
+    e.preventDefault();
+    if(e.shiftKey)redo(); else undo();
+  }else if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redo();}
+});
+document.querySelectorAll('.phead').forEach(h=>{
+  h.addEventListener('click',()=>h.setAttribute('aria-expanded',h.getAttribute('aria-expanded')==='true'?'false':'true'));
+});
+
+$('undo').onclick=undo;
+$('redo').onclick=redo;
+
+/* Randomize rolls composition, palette, light, motion and cast. Ranges are
+   bounded so the result lands in family rather than anywhere.
+   Deliberately HELD, never rolled — the whole Finish panel plus the frame:
+     frame · sat · contrast · highlights · shadows · grain · grainSize · grainStyle
+   Anything added to the tool stays out of this list unless it is asked for. */
+$('randomize').onclick=()=>{
+  const R=Math.random, pick=a=>a[Math.floor(R()*a.length)];
+  if(S.ref&&S.ref.length>=3&&R()<0.5){
+    /* a reference image is loaded, so draw from it half the time */
+    const mids=rankedMiddles(S.ref);
+    S.colors=[S.ref[0],mids.length?pick(mids):S.ref[1],S.ref[S.ref.length-1]];
+  }else{
+    S.colors=pick(PALETTES).c.slice();
+  }
+  S.form=pick(FORMS)[0];
+  S.dir=pick(DIRS)[0];
+  S.width=0.55+R()*0.45;
+  S.inset=-0.06+R()*0.18;
+  S.blur=0.06+R()*0.10;
+  S.organic=R()*0.85;
+  S.bloom=R()*0.55;
+  S.drift=R()<0.6?0:R()*0.4;
+  S.cast=pick(['none','none','none','shoji','slat','dapple','leaves']);
+  S.castMode=pick(['light','light','shadow']);
+  S.castAmt=0.2+R()*0.6;
+  S.castScale=0.6+R()*1.0;
+  S.castX=(R()-0.5)*0.5;
+  S.castY=(R()-0.5)*0.5;
+  S.driftDir=pick(['across','across','along','spin']);
+  S.falloff=R()*0.85;
+  S.mid=0.36+R()*0.28;
+  S.seed=1+Math.floor(R()*999);
+  syncAll();schedule();commit();
+  toast('Randomized');
+};
+$('resetAll').onclick=()=>{
+  const o=JSON.parse(DEFAULT_SNAP);
+  KEYS.forEach(k=>{S[k]=Array.isArray(o[k])?o[k].slice():o[k];});
+  lastRefSrc='';
+  syncAll();schedule();commit();
+  toast('Reset to defaults');
+};
+
+/* ---------- controls ---------- */
+function chips(el,items,get,set){
+  el.innerHTML='';
+  items.forEach(([v,label])=>{
+    const b=document.createElement('button');
+    b.className='chip';b.type='button';b.textContent=label;
+    b.setAttribute('aria-pressed',get()===v?'true':'false');
+    b.onclick=()=>{
+      set(v);
+      const peer=el.id==='forms'?$('forms2'):(el.id==='forms2'?$('forms'):null);
+      [...el.children].forEach(c=>c.setAttribute('aria-pressed','false'));
+      if(peer)[...peer.children].forEach(c=>c.setAttribute('aria-pressed','false'));
+      b.setAttribute('aria-pressed','true');schedule();commit();
+    };
+    el.appendChild(b);
+  });
+}
+function syncChips(){
+  chips($('frames'),Object.keys(FRAMES).map(k=>[k,k]),()=>S.frame,v=>S.frame=v);
+  chips($('forms'),FORMS.filter(f=>f[2]==='geo'),()=>S.form,v=>S.form=v);
+  chips($('forms2'),FORMS.filter(f=>f[2]==='org'),()=>S.form,v=>S.form=v);
+  chips($('dirs'),DIRS,()=>S.dir,v=>S.dir=v);
+  chips($('casts'),CASTS,()=>S.cast,v=>S.cast=v);
+  chips($('castModes'),CASTMODES,()=>S.castMode,v=>S.castMode=v);
+  chips($('drifts'),DRIFTDIRS,()=>S.driftDir,v=>S.driftDir=v);
+  const cur=S.colors.join();
+  document.querySelectorAll('#palettes .chip, #palettes2 .chip').forEach(c=>
+    c.setAttribute('aria-pressed', c.dataset.cols===cur?'true':'false'));
+}
+
+[['palettes','room'],['palettes2','trad']].forEach(([id,g])=>{
+  const el=$(id); el.innerHTML='';
+  PALETTES.filter(p=>p.g===g).forEach(p=>{
+    const b=document.createElement('button');
+    b.className='chip';b.type='button';b.textContent=p.n;
+    if(p.t)b.title=p.t;
+    b.dataset.cols=p.c.join();
+    b.onclick=()=>{S.colors=p.c.slice();syncColors();syncChips();schedule();commit();};
+    el.appendChild(b);
+  });
+});
+
+/* each row gets a range + a typed number box, kept in sync */
+CTRLS.forEach(c=>{
+  const row=document.querySelector(`.row[data-ctrl="${c.id}"]`);
+  const r=document.createElement('input');
+  r.type='range';r.min=c.min;r.max=c.max;r.step=c.step;r.id=c.id;
+  const n=document.createElement('input');
+  n.type='number';n.className='num';n.id=c.id+'N';
+  n.min=(c.min*c.scale).toFixed(c.dec);n.max=(c.max*c.scale).toFixed(c.dec);
+  n.step=Math.max(c.step*c.scale,Math.pow(10,-c.dec)).toFixed(c.dec);
+  row.appendChild(r);row.appendChild(n);
+  const show=v=>{r.value=v;n.value=(v*c.scale).toFixed(c.dec);};
+  c.show=show;
+  r.addEventListener('input',()=>{S[c.id]=parseFloat(r.value);n.value=(S[c.id]*c.scale).toFixed(c.dec);schedule();});
+  r.addEventListener('change',commit);
+  n.addEventListener('change',()=>{
+    let v=parseFloat(n.value);
+    if(isNaN(v)){show(S[c.id]);return;}
+    v=clamp(v/c.scale,c.min,c.max);
+    S[c.id]=v;show(v);schedule();commit();
+  });
+});
+
+$('grainStyle').addEventListener('change',e=>{S.grainStyle=e.target.value;schedule();commit();});
+$('seedNum').addEventListener('change',()=>{
+  let v=parseInt($('seedNum').value,10);
+  if(isNaN(v))v=S.seed;
+  S.seed=clamp(v,1,999);$('seedNum').value=S.seed;schedule();commit();
+});
+$('shuffle').addEventListener('click',()=>{
+  let v=S.seed;
+  while(v===S.seed)v=1+Math.floor(Math.random()*999);
+  S.seed=v;$('seedNum').value=v;schedule();commit();
+});
+
+[0,1,2].forEach(i=>{
+  const inp=$('c'+i);
+  inp.addEventListener('input',()=>{S.colors[i]=inp.value;syncColors();schedule();});
+  inp.addEventListener('change',()=>{syncChips();commit();});
+});
+function syncColors(){
+  [0,1,2].forEach(i=>{
+    $('c'+i).value=S.colors[i];
+    $('sw'+i).style.background=S.colors[i];
+    $('h'+i).textContent=S.colors[i].toUpperCase();
+  });
+}
+function syncRef(){
+  const has=S.ref&&S.ref.length>=3;
+  $('refStrip').hidden=!has;$('refBtns').hidden=!has;
+  $('refThumb').hidden=!has||!lastRefSrc;
+  if(lastRefSrc)$('refThumb').src=lastRefSrc;
+  $('dropLabel').textContent=has?'Replace image':'Drop an image or click';
+  if(has){
+    $('refStrip').innerHTML='';
+    S.ref.forEach(c=>{const s=document.createElement('span');s.style.background=c;s.title=c;$('refStrip').appendChild(s);});
+  }
+}
+function syncAll(){
+  CTRLS.forEach(c=>c.show(S[c.id]));
+  $('seedNum').value=S.seed;
+  $('grainStyle').value=S.grainStyle;
+  syncColors();syncChips();syncRef();
+}
+
+/* ---------- palette from an image ---------- */
+function kmeans(pts,k,iters){
+  if(pts.length<k)k=Math.max(1,pts.length);
+  const cent=[];
+  const sorted=pts.slice().sort((a,b)=>(a[0]+a[1]+a[2])-(b[0]+b[1]+b[2]));
+  for(let i=0;i<k;i++)cent.push(sorted[Math.floor((i+0.5)/k*sorted.length)].slice());
+  let assign=new Array(pts.length).fill(0);
+  for(let it=0;it<iters;it++){
+    for(let i=0;i<pts.length;i++){
+      let best=0,bd=Infinity;
+      for(let j=0;j<k;j++){
+        const dx=pts[i][0]-cent[j][0],dy=pts[i][1]-cent[j][1],dz=pts[i][2]-cent[j][2];
+        const d=dx*dx+dy*dy+dz*dz;
+        if(d<bd){bd=d;best=j;}
+      }
+      assign[i]=best;
+    }
+    const sum=Array.from({length:k},()=>[0,0,0,0]);
+    for(let i=0;i<pts.length;i++){
+      const a=assign[i];
+      sum[a][0]+=pts[i][0];sum[a][1]+=pts[i][1];sum[a][2]+=pts[i][2];sum[a][3]++;
+    }
+    for(let j=0;j<k;j++)if(sum[j][3])cent[j]=[sum[j][0]/sum[j][3],sum[j][1]/sum[j][3],sum[j][2]/sum[j][3]];
+  }
+  const counts=new Array(k).fill(0);
+  assign.forEach(a=>counts[a]++);
+  return cent.map((c,i)=>({hex:rgbToHex(c[0],c[1],c[2]),n:counts[i]})).filter(c=>c.n>0);
+}
+function samplePalette(img){
+  const n=72, c=document.createElement('canvas');
+  c.width=n;c.height=n;
+  const x=c.getContext('2d',{willReadFrequently:true});
+  x.drawImage(img,0,0,n,n);
+  const d=x.getImageData(0,0,n,n).data, pts=[];
+  for(let i=0;i<n*n;i++){const o=i*4;if(d[o+3]>128)pts.push([d[o],d[o+1],d[o+2]]);}
+  if(!pts.length)return null;
+  const cl=kmeans(pts,6,10).sort((a,b)=>lum(a.hex)-lum(b.hex));
+  return cl.map(c=>c.hex);
+}
+let remixStep=0, lastRefSrc='';
+/* rank the inner samples: a good middle stop is chromatic and sits well clear
+   of both the ground and the light, otherwise the ramp reads as two flat halves */
+function rankedMiddles(p){
+  const lo=lum(p[0]), hi=lum(p[p.length-1]), span=Math.max(1,hi-lo);
+  return p.slice(1,p.length-1).map(hex=>{
+    const [r,g,b]=hexToRgb(hex);
+    const [,s]=rgbToHsl(r,g,b);
+    const rel=clamp((lum(hex)-lo)/span,0,1);
+    const spread=Math.min(rel,1-rel)*2;              /* 1 at the midpoint, 0 at either end */
+    return {hex,score:spread*0.75+s*0.25};
+  }).sort((a,b)=>b.score-a.score).map(o=>o.hex);
+}
+function applyTriad(){
+  const p=S.ref;
+  if(!p||p.length<3)return;
+  const mids=rankedMiddles(p);
+  S.colors=[p[0], mids.length?mids[remixStep%mids.length]:p[1], p[p.length-1]];
+  syncColors();syncChips();schedule();
+}
+function loadImage(file){
+  if(!file||!/^image\//.test(file.type)){toast('That file is not an image');return;}
+  const fr=new FileReader();
+  fr.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const pal=samplePalette(img);
+      if(!pal){toast('Could not read that image');return;}
+      S.ref=pal;remixStep=0;lastRefSrc=fr.result;
+      syncRef();applyTriad();commit();
+      toast('Palette sampled');
+    };
+    img.onerror=()=>toast('Could not read that image');
+    img.src=fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+$('drop').onclick=()=>$('file').click();
+$('file').addEventListener('change',e=>{loadImage(e.target.files[0]);e.target.value='';});
+['dragenter','dragover'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('over');}));
+['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('over');}));
+$('drop').addEventListener('drop',e=>{if(e.dataTransfer.files.length)loadImage(e.dataTransfer.files[0]);});
+$('remix').onclick=()=>{remixStep++;applyTriad();commit();};
+$('clearRef').onclick=e=>{
+  e.stopPropagation();
+  S.ref=[];remixStep=0;   /* the thumbnail source is kept so undo can restore it */
+  syncRef();commit();
+  toast('Reference cleared · colours kept');
+};
+
+/* ---------- export ---------- */
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),1700);}
+function stamp(){return `gradient_${S.form}_${S.frame.replace(':','x')}_${S.seed}`;}
+function download(blob,name){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+$('dlSvg').onclick=()=>{download(new Blob([buildSVG()],{type:'image/svg+xml'}),stamp()+'.svg');toast('SVG saved');};
+$('copySvg').onclick=async()=>{
+  const svg=buildSVG();
+  try{await navigator.clipboard.writeText(svg);}
+  catch(e){const ta=document.createElement('textarea');ta.value=svg;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
+  toast('SVG copied · paste into Figma');
+};
+/* The texture is baked into the SVG and rasterised with it. An earlier build
+   painted grain onto the canvas separately because it appeared to vanish on
+   export — that was the noise sitting at the pixel sampling limit, not the
+   filter being dropped, and it is fixed at the source now. */
+function exportPNG(mult){
+  const [W,H]=FRAMES[S.frame];
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas');c.width=W*mult;c.height=H*mult;
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    c.toBlob(b=>{download(b,stamp()+(mult>1?'@'+mult+'x':'')+'.png');toast('PNG saved · '+c.width+'×'+c.height);},'image/png');
+  };
+  img.onerror=()=>toast('PNG export failed');
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(buildSVG());
+}
+$('png1').onclick=()=>exportPNG(1);
+$('png2').onclick=()=>exportPNG(2);
+$('png4').onclick=()=>exportPNG(4);
+
+/* ---------- go ---------- */
+syncAll();updateHist();draw();
+
+})();
+</script>
+</body>
+</html>
