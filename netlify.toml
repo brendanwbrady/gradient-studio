@@ -1,8 +1,0 @@
-# Static single-file site — nothing to build.
-[build]
-  publish = "."
-  command = ""
-
-# Give every branch its own preview URL, not just pull requests.
-[context.branch-deploy]
-  publish = "."
