@@ -272,7 +272,7 @@
       <div class="glabel" style="margin:14px 0 8px">Grain</div>
       <div class="row"><label for="grainStyle">Tone</label>
         <select id="grainStyle">
-          <option value="neutral">Neutral</option>
+          <option value="neutral">Film</option>
           <option value="colored">Colored</option>
           <option value="shadow">Shadow</option>
         </select>
@@ -378,8 +378,13 @@ function col(i){
   /* photographic, not per-stop: each colour is lifted or pulled in proportion
      to how bright it already is, so the sliders find the highlight and the
      shadow wherever they happen to sit in the palette */
-  const wHi=clamp((L-0.42)/0.58,0,1), wLo=clamp((0.58-L)/0.58,0,1);
-  L=clamp(L+S.highlights*0.34*wHi+S.shadows*0.34*wLo,0,1);
+  /* Highlights used to start biting only above L 0.42, which on these palettes
+     is the light stop alone — a sliver of the frame — while Shadows moves the
+     ground and so moves nearly all of it. Widening the highlight's reach down
+     into the midtones makes the two controls feel like a matched pair without
+     touching the ground. */
+  const wHi=clamp((L-0.26)/0.54,0,1), wLo=clamp((0.58-L)/0.58,0,1);
+  L=clamp(L+S.highlights*0.40*wHi+S.shadows*0.34*wLo,0,1);
   const [R,G,B]=hslToRgb(h,clamp(s*S.sat,0,1),L);
   return rgbToHex(R,G,B);
 }
@@ -436,7 +441,7 @@ const TEXTURES={
      sampling limit, where its rendered strength swings wildly with render scale.
      0.55 puts it near two pixels: stable at any size, and the same in the
      preview, the PNG and Figma. */
-  grain: {fx:0.85,  fy:0.85, oct:4, nGain:1.5}
+  grain: {fx:0.90,  fy:0.90, oct:2, nGain:1.5}
   /* Tooth, Washi and Mottle are parked — none of them held up next to Grain.
      The engine reads this map by key, so re-adding a profile here and an option
      to the Tone group's markup is all it takes to bring one back:
@@ -659,6 +664,31 @@ function blurFilter(id,sd,x,y,w,h,sdy){
 }
 const GRAIN_END=0.30;   /* how much grain survives at either end of the range */
 const DITHER="1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
+/* Film grain, built on the same chain Figma emits for a monochrome noise
+   effect: turbulence, luminance to alpha, the dither transfer, clipped to the
+   plate, then flooded with a colour. Keeping to that exact grammar is what lets
+   it survive the paste. The flood colour is the only thing that varies, which is
+   how one chain gives both the dark and the light speckle. */
+function noiseFilterMono(id,W,H,tex,scale,seed,flood){
+  const t=TEXTURES[tex]||TEXTURES.grain;
+  const fx=(t.fx/scale).toFixed(3), fy=(t.fy/scale).toFixed(3);
+  return `<filter id="${id}" x="0" y="0" width="${W}" height="${H}" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="${fx} ${fy}" stitchTiles="stitch" numOctaves="${t.oct}" result="noise" seed="${seed}" />
+<feColorMatrix in="noise" type="luminanceToAlpha" result="alphaNoise" />
+<feComponentTransfer in="alphaNoise" result="coloredNoise1">
+<feFuncA type="discrete" tableValues="${DITHER}"/>
+</feComponentTransfer>
+<feComposite operator="in" in2="shape" in="coloredNoise1" result="noise1Clipped" />
+<feFlood flood-color="${flood}" result="color1Flood" />
+<feComposite operator="in" in2="noise1Clipped" in="color1Flood" result="color1" />
+<feMerge result="effect1_noise">
+<feMergeNode in="shape" />
+<feMergeNode in="color1" />
+</feMerge>
+</filter>`;
+}
 function noiseFilter(id,W,H,tex,scale,seed,style){
   const t=TEXTURES[tex]||TEXTURES.grain;
   const fx=(t.fx/scale).toFixed(3), fy=(t.fy/scale).toFixed(3);
@@ -1077,26 +1107,42 @@ ${ramp}
 
   let grain='';
   if(S.grain>0.002){
-    defs.push(noiseFilter('filter1_n'+sfx,W,H,S.texture,S.grainSize,S.seed,S.grainStyle));
-    const gain=(TEXTURES[S.texture]||TEXTURES.grain).nGain||1.5;
-    const neutral=(S.grainStyle==='neutral');
-    /* The plate carries a ramp instead of a flat fill. The filter already clips
-       the noise to the plate's alpha, so grain thins out as it nears the light
-       — texture where the eye is straining, clean highlights — and it costs no
-       new filter primitive, only a gradient Figma already understands. */
-    const pc=neutral?'#808080':col(0);
-    const nId='paintN_linear'+sfx;
-    /* Texture belongs to the midtones. Weighted to full in the middle of the
-       ramp and eased off at both ends, so it neither veils the highlight nor
-       lifts the shadow — the two places it was flattening the image. */
-    defs.push(`<linearGradient id="${nId}" gradientUnits="userSpaceOnUse" x1="${(cx-ax*L/2).toFixed(0)}" y1="${(cy-ay*L/2).toFixed(0)}" x2="${(cx+ax*L/2).toFixed(0)}" y2="${(cy+ay*L/2).toFixed(0)}">
+    /* Texture belongs to the midtones. The plate carries a ramp rather than a
+       flat fill and the filter clips the noise to it, so grain eases off at both
+       ends of the tonal range — it neither veils the highlight nor lifts the
+       shadow. */
+    const gramp=(id,pc)=>{
+      defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${(cx-ax*L/2).toFixed(0)}" y1="${(cy-ay*L/2).toFixed(0)}" x2="${(cx+ax*L/2).toFixed(0)}" y2="${(cy+ay*L/2).toFixed(0)}">
 <stop stop-color="${pc}" stop-opacity="${GRAIN_END}"/>
 <stop offset="${clamp(S.mid,0.2,0.8).toFixed(2)}" stop-color="${pc}"/>
 <stop offset="1" stop-color="${pc}" stop-opacity="${GRAIN_END}"/>
 </linearGradient>`);
-    grain=`<g filter="url(#filter1_n${sfx})">
-<rect width="${W}" height="${H}" fill="url(#${nId})" fill-opacity="${clamp(neutral?S.grain*gain:S.grain,0,1).toFixed(3)}" style="mix-blend-mode:${neutral?'soft-light':'multiply'}"/>
+      return id;
+    };
+    const gain=(TEXTURES[S.texture]||TEXTURES.grain).nGain||1.5;
+    if(S.grainStyle==='neutral'){
+      /* Film grain is two passes of the same monochrome chain, one darkening and
+         one lightening, on different turbulence seeds so the speckle interleaves
+         instead of cancelling. Two passes are what make it read as grain rather
+         than as dirt — a single direction only ever soils the image.
+         Each plate is the identity colour for its own blend — white under
+         multiply, black under screen — so the plate itself is invisible and only
+         the flood registers. */
+      const a1=clamp(S.grain*gain,0,1), a2=clamp(S.grain*gain*0.78,0,1);
+      defs.push(noiseFilterMono('filter1_n'+sfx,W,H,S.texture,S.grainSize,S.seed,'rgba(0, 0, 0, 0.55)'));
+      defs.push(noiseFilterMono('filter2_n'+sfx,W,H,S.texture,S.grainSize,(S.seed*7+131)%9999,'rgba(255, 255, 255, 0.5)'));
+      grain=`<g filter="url(#filter1_n${sfx})">
+<rect width="${W}" height="${H}" fill="url(#${gramp('paintNa_linear'+sfx,'#ffffff')})" fill-opacity="${a1.toFixed(3)}" style="mix-blend-mode:multiply"/>
+</g>
+<g filter="url(#filter2_n${sfx})">
+<rect width="${W}" height="${H}" fill="url(#${gramp('paintNb_linear'+sfx,'#000000')})" fill-opacity="${a2.toFixed(3)}" style="mix-blend-mode:screen"/>
 </g>`;
+    }else{
+      defs.push(noiseFilter('filter1_n'+sfx,W,H,S.texture,S.grainSize,S.seed,S.grainStyle));
+      grain=`<g filter="url(#filter1_n${sfx})">
+<rect width="${W}" height="${H}" fill="url(#${gramp('paintN_linear'+sfx,col(0))})" fill-opacity="${clamp(S.grain,0,1).toFixed(3)}" style="mix-blend-mode:multiply"/>
+</g>`;
+    }
   }
 
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" xmlns="http://www.w3.org/2000/svg">
