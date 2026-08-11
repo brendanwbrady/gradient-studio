@@ -46,6 +46,8 @@
   .histbtns{display:flex;gap:5px;flex:0 0 auto}
   .hb{width:28px;height:28px;border:1px solid var(--line);background:transparent;color:var(--muted);
     border-radius:var(--r-pill);cursor:pointer;font-size:13px;line-height:1;padding:0;transition:.15s}
+  .hb svg{width:14px;height:14px;display:block;margin:0 auto;fill:none;stroke:currentColor;
+    stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   .hb:hover:not(:disabled){color:var(--text);border-color:var(--line-strong)}
   .hb:disabled{opacity:.3;cursor:default}
 
@@ -158,8 +160,8 @@
       <h1 class="wordmark">Gradient Studio</h1>
     </div>
     <div class="histbtns">
-      <button class="hb" id="undo" title="Undo (⌘Z)" disabled>↶</button>
-      <button class="hb" id="redo" title="Redo (⇧⌘Z)" disabled>↷</button>
+      <button class="hb" id="undo" title="Undo (⌘Z)" disabled aria-label="Undo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6h5.5a3.5 3.5 0 1 1 0 7H7"/><path d="M6.6 3.4 4 6l2.6 2.6"/></svg></button>
+      <button class="hb" id="redo" title="Redo (⇧⌘Z)" disabled aria-label="Redo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12 6H6.5a3.5 3.5 0 1 0 0 7H9"/><path d="M9.4 3.4 12 6l-2.6 2.6"/></svg></button>
     </div>
   </div>
 
@@ -251,9 +253,10 @@
       <button class="phead" type="button" aria-expanded="false"><span>Cast</span><i class="caret"></i></button>
       <div class="pbody">
             <div class="chips" id="casts" style="margin-bottom:12px"></div>
-      <div class="glabel" style="margin-bottom:8px">Reads as</div>
-      <div class="chips" id="castModes" style="margin-bottom:12px"></div>
       <div class="row" data-ctrl="castAmt"><label>Strength</label></div>
+      <div class="row" data-ctrl="castAngle"><label>Angle</label></div>
+      <div class="row" data-ctrl="castBlur"><label>Blur</label></div>
+      <div class="row" data-ctrl="castDensity"><label>Density</label></div>
       <div class="row" data-ctrl="castScale"><label>Scale</label></div>
       <div class="row" data-ctrl="castX"><label>Position X</label></div>
       <div class="row" data-ctrl="castY"><label>Position Y</label></div>
@@ -355,6 +358,14 @@ function shadowTone(){
   const [R,G,B]=hslToRgb(h+0.028*dir,clamp(sa*0.9,0,1),clamp(l+0.034*dir,0,1));
   return rgbToHex(R,G,B);
 }
+/* a cast shadow reads as a shadow only if it is close to black — the lifted
+   ground tone used for atmospheric depth is far too pale for an object */
+function castShadowTone(){
+  const [r,g,b]=hexToRgb(col(0));
+  const [h,sa]=rgbToHsl(r,g,b);
+  const [R,G,B]=hslToRgb(h,clamp(sa*0.55,0,1),0.055);
+  return rgbToHex(R,G,B);
+}
 function lum(hex){const[r,g,b]=hexToRgb(hex);return 0.2126*r+0.7152*g+0.0722*b;}
 
 /* saturation is applied at render time so the stored palette stays intact */
@@ -391,8 +402,14 @@ const FORMS=[
 /* forms that compose their own masses instead of one inset shape */
 const REPLACE={mesh:1,orb:1};
 const DIRS=[['up','Top'],['down','Bottom'],['left','Left'],['right','Right']];
-const CASTS=[['none','None'],['shoji','Shoji'],['slat','Slat'],['dapple','Dapple'],['leaves','Leaves']];
-const CASTMODES=[['light','Light'],['shadow','Shadow']];
+/* Silhouettes traced from the reference art, normalised to height 1.0 and
+   centred on the origin. Contour 0 is the outline, wound positive; any that
+   follow are holes wound negative, so the nonzero fill cuts them out. */
+const ICON_COUPE=[[[0.065,-0.5],[0.229,-0.493],[0.305,-0.486],[0.345,-0.478],[0.36,-0.471],[0.362,-0.464],[0.361,-0.399],[0.356,-0.37],[0.346,-0.334],[0.331,-0.305],[0.312,-0.283],[0.284,-0.261],[0.243,-0.24],[0.205,-0.225],[0.1,-0.196],[0.085,-0.189],[0.073,-0.182],[0.059,-0.167],[0.045,-0.146],[0.039,-0.131],[0.03,-0.095],[0.023,-0.052],[0.019,-0.008],[0.014,0.107],[0.014,0.194],[0.019,0.288],[0.026,0.339],[0.032,0.361],[0.038,0.375],[0.05,0.389],[0.064,0.397],[0.142,0.404],[0.185,0.411],[0.212,0.418],[0.229,0.426],[0.239,0.433],[0.242,0.44],[0.242,0.455],[0.238,0.462],[0.226,0.469],[0.182,0.483],[0.143,0.491],[0.074,0.498],[0.028,0.5],[-0.028,0.5],[-0.074,0.498],[-0.143,0.491],[-0.182,0.483],[-0.226,0.469],[-0.238,0.462],[-0.242,0.455],[-0.242,0.44],[-0.239,0.433],[-0.229,0.426],[-0.212,0.418],[-0.185,0.411],[-0.142,0.404],[-0.064,0.397],[-0.05,0.389],[-0.038,0.375],[-0.032,0.361],[-0.026,0.339],[-0.019,0.288],[-0.014,0.194],[-0.014,0.107],[-0.019,-0.008],[-0.023,-0.052],[-0.03,-0.095],[-0.039,-0.131],[-0.045,-0.146],[-0.059,-0.167],[-0.073,-0.182],[-0.085,-0.189],[-0.1,-0.196],[-0.205,-0.225],[-0.243,-0.24],[-0.284,-0.261],[-0.312,-0.283],[-0.331,-0.305],[-0.346,-0.334],[-0.356,-0.37],[-0.361,-0.399],[-0.362,-0.464],[-0.36,-0.471],[-0.345,-0.478],[-0.305,-0.486],[-0.229,-0.493],[-0.065,-0.5]]];
+const ICON_FLUTE=[[[0.032,-0.5],[0.086,-0.493],[0.094,-0.487],[0.102,-0.4],[0.112,-0.254],[0.113,-0.188],[0.108,-0.128],[0.102,-0.101],[0.091,-0.068],[0.066,-0.021],[0.052,-0.001],[0.032,0.032],[0.021,0.065],[0.016,0.105],[0.011,0.191],[0.01,0.271],[0.014,0.358],[0.018,0.384],[0.023,0.404],[0.035,0.424],[0.046,0.431],[0.094,0.437],[0.119,0.444],[0.133,0.451],[0.141,0.457],[0.143,0.464],[0.142,0.471],[0.136,0.477],[0.123,0.484],[0.102,0.491],[0.063,0.497],[0.028,0.5],[-0.028,0.5],[-0.063,0.497],[-0.102,0.491],[-0.123,0.484],[-0.136,0.477],[-0.142,0.471],[-0.143,0.464],[-0.141,0.457],[-0.133,0.451],[-0.119,0.444],[-0.094,0.437],[-0.046,0.431],[-0.035,0.424],[-0.023,0.404],[-0.018,0.384],[-0.014,0.358],[-0.01,0.271],[-0.011,0.191],[-0.016,0.105],[-0.021,0.065],[-0.032,0.032],[-0.052,-0.001],[-0.066,-0.021],[-0.091,-0.068],[-0.102,-0.101],[-0.108,-0.128],[-0.113,-0.188],[-0.112,-0.254],[-0.102,-0.4],[-0.094,-0.487],[-0.086,-0.493],[-0.032,-0.5]]];
+const ICON_PIANO=[[[0.334,-0.483],[0.27,-0.403],[0.264,-0.363],[0.273,-0.338],[0.316,-0.296],[0.5,-0.224],[0.524,-0.202],[0.537,-0.171],[0.522,-0.121],[0.484,-0.082],[0.429,-0.053],[0.338,-0.022],[0.523,-0.02],[0.522,0.14],[0.511,0.142],[0.509,0.158],[0.463,0.173],[0.444,0.206],[0.43,0.385],[0.422,0.394],[0.43,0.405],[0.425,0.42],[0.401,0.422],[0.393,0.414],[0.396,0.396],[0.412,0.396],[0.414,0.387],[0.402,0.382],[0.391,0.212],[0.383,0.189],[0.361,0.163],[0.337,0.151],[0.304,0.148],[0.272,0.154],[0.27,0.162],[0.199,0.165],[0.198,0.179],[0.151,0.181],[0.15,0.194],[0.112,0.217],[0.098,0.253],[0.082,0.451],[0.073,0.457],[0.079,0.459],[0.076,0.467],[0.083,0.478],[0.076,0.498],[0.06,0.5],[0.055,0.493],[0.047,0.498],[0.038,0.486],[0.041,0.47],[0.053,0.463],[0.041,0.481],[0.046,0.48],[0.054,0.494],[0.054,0.479],[0.064,0.467],[0.043,0.454],[0.042,0.438],[0.048,0.442],[0.056,0.418],[0.044,0.419],[0.043,0.413],[0.04,0.418],[0.026,0.252],[0.013,0.226],[-0.005,0.211],[0.004,0.208],[-0.024,0.205],[-0.033,0.189],[-0.048,0.189],[-0.111,0.383],[-0.112,0.413],[-0.094,0.427],[-0.092,0.462],[-0.181,0.467],[-0.162,0.463],[-0.18,0.462],[-0.179,0.456],[-0.142,0.449],[-0.222,0.455],[-0.171,0.446],[-0.253,0.451],[-0.198,0.442],[-0.216,0.442],[-0.216,0.418],[-0.201,0.417],[-0.2,0.405],[-0.188,0.406],[-0.188,0.252],[-0.181,0.218],[-0.187,0.222],[-0.189,0.19],[-0.218,0.188],[-0.226,0.179],[-0.274,0.176],[-0.312,0.193],[-0.334,0.228],[-0.352,0.419],[-0.361,0.421],[-0.363,0.455],[-0.379,0.461],[-0.383,0.444],[-0.371,0.428],[-0.388,0.418],[-0.378,0.385],[-0.391,0.384],[-0.385,0.379],[-0.392,0.375],[-0.402,0.236],[-0.397,0.226],[-0.406,0.225],[-0.412,0.207],[-0.428,0.19],[-0.413,0.187],[-0.477,0.17],[-0.479,0.159],[-0.528,0.157],[-0.529,0.137],[-0.537,0.134],[-0.536,0.087],[-0.493,0.073],[-0.477,0.059],[-0.482,-0.018],[-0.309,-0.018],[-0.263,-0.132],[-0.141,-0.146],[0.168,-0.479],[0.164,-0.486],[0.046,-0.359],[0.156,-0.481],[0.165,-0.5],[0.331,-0.497]],[[-0.165,0.371],[-0.145,0.31],[-0.164,0.411],[-0.134,0.415],[-0.133,0.195],[-0.162,0.192]],[[-0.071,0.191],[-0.083,0.222],[-0.079,0.196],[-0.108,0.197],[-0.109,0.297],[-0.099,0.277],[-0.11,0.311],[-0.11,0.37],[-0.054,0.19]],[[-0.488,0.11],[-0.134,0.127],[-0.132,0.111],[-0.489,0.095]]];
+const ICON_CHANDELIER=[[[1.373,0.252],[1.361,0.279],[1.332,0.303],[1.308,0.31],[1.093,0.339],[0.822,0.354],[0.802,0.381],[0.753,0.41],[0.607,0.455],[0.411,0.486],[0.156,0.5],[-0.093,0.493],[-0.301,0.469],[-0.536,0.419],[-0.735,0.352],[-0.835,0.37],[-0.976,0.384],[-1.095,0.386],[-1.207,0.377],[-1.287,0.357],[-1.332,0.334],[-1.363,0.301],[-1.375,0.261],[-1.372,0.227],[-1.357,0.196],[-1.334,0.169],[-1.288,0.137],[-1.2,0.093],[-1.066,0.039],[-0.854,-0.026],[-0.862,-0.09],[-0.844,-0.151],[-0.8,-0.202],[-0.741,-0.236],[-0.646,-0.263],[-0.542,-0.279],[-0.455,-0.287],[-0.276,-0.287],[-0.22,-0.326],[-0.144,-0.368],[-0.061,-0.404],[0.041,-0.437],[0.234,-0.476],[0.48,-0.5],[0.681,-0.496],[0.844,-0.467],[0.932,-0.437],[0.995,-0.406],[1.088,-0.343],[1.175,-0.252],[1.234,-0.158],[1.267,-0.09],[1.301,0.006],[1.341,0.169],[1.364,0.191],[1.375,0.222]],[[-0.798,0.088],[-0.807,0.084],[-1.024,0.16],[-1.209,0.241],[-1.088,0.256],[-0.907,0.252],[-0.916,0.2],[-0.907,0.173],[-0.892,0.155],[-0.844,0.129],[-0.782,0.122]],[[-0.659,0.048],[-0.663,0.052],[-0.646,0.095],[-0.639,0.146],[-0.578,0.162],[-0.54,0.158],[-0.514,0.115],[-0.484,0.017]],[[0.173,0.124],[0.187,0.144],[0.211,0.156],[0.316,0.18],[0.429,0.193],[0.594,0.202],[0.757,0.202],[0.677,0.135],[0.531,0.062],[0.375,0.017],[0.241,-0.008],[0.2,-0.01]],[[-0.274,0.334],[-0.052,0.357],[0.222,0.361],[0.451,0.343],[0.31,0.325],[0.198,0.301],[0.138,0.279],[0.088,0.249],[0.052,0.207],[0.03,0.146],[0.03,0.09],[0.059,-0.017],[0.055,-0.024],[-0.108,-0.026],[-0.299,-0.012],[-0.373,0.202],[-0.401,0.245],[-0.429,0.274],[-0.458,0.292]],[[-0.52,-0.14],[-0.63,-0.124],[-0.703,-0.1],[-0.715,-0.09],[-0.721,-0.07],[-0.717,-0.061],[-0.429,-0.109],[-0.408,-0.144]],[[0.052,-0.234],[0.109,-0.207],[0.151,-0.175],[0.182,-0.129],[0.308,-0.115],[0.429,-0.091],[0.567,-0.052],[0.654,-0.015],[0.737,0.03],[0.811,0.084],[0.867,0.144],[0.896,0.2],[1.064,0.191],[1.187,0.176],[1.129,-0.01],[1.057,-0.14],[1.03,-0.175],[0.961,-0.238],[0.91,-0.27],[0.849,-0.299],[0.762,-0.325],[0.684,-0.337],[0.605,-0.343],[0.473,-0.341],[0.334,-0.33],[0.171,-0.307],[0.071,-0.285],[-0.019,-0.254]]];
+const CASTS=[['none','None'],['coupe','Coupe'],['flute','Flute'],['piano','Piano'],['chandelier','Chandelier']];
 const DRIFTDIRS=[['across','Across'],['along','Along'],['spin','Spin']];
 
 const PALETTES=[
@@ -434,7 +451,7 @@ const S={
   colors:['#29131D','#99904C','#C6C6BA'], mid:0.5, falloff:0.42, sat:1, contrast:1, highlights:0, shadows:0,
   width:1, inset:0.068, blur:0.075,
   organic:0.35, bloom:0.3, drift:0, seed:184,
-  cast:'none', castMode:'light', castAmt:0.45, castScale:1, castX:0, castY:0, driftDir:'across',
+  cast:'none', castAmt:0.45, castAngle:4, castBlur:0.12, castDensity:0.50, castScale:1, castX:0, castY:0, driftDir:'across',
   grain:0.07, grainSize:1, grainStyle:'neutral', texture:'grain',
   ref:[]
 };
@@ -454,9 +471,12 @@ const CTRLS=[
   {id:'bloom',    min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
   {id:'drift',    min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
   {id:'castAmt',  min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'castAngle',min:-40, max:40,  step:1,    scale:1,  dec:0,unit:''},
+  {id:'castBlur', min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'castDensity',min:0, max:1,   step:0.01, scale:100,dec:0,unit:'%'},
   {id:'castScale',min:0.3, max:2.2, step:0.01, scale:100,dec:0,unit:'%'},
-  {id:'castX',    min:-0.5,max:0.5, step:0.01, scale:100,dec:0,unit:'%'},
-  {id:'castY',    min:-0.5,max:0.5, step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'castX',    min:-1,  max:1,   step:0.01, scale:100,dec:0,unit:'%'},
+  {id:'castY',    min:-1,  max:1,   step:0.01, scale:100,dec:0,unit:'%'},
   {id:'grain',    min:0,   max:0.3, step:0.005,scale:100,dec:0,unit:'%'},
   {id:'grainSize',min:0.3, max:3,   step:0.05, scale:1,  dec:2,unit:''}
 ];
@@ -935,8 +955,9 @@ ${ramp}
     /* One path, one gradient, one blur — a single Figma layer, not forty
        rectangles. The fill fades along the light axis so the pattern lands on
        the lit surface and dies in the dark, instead of floating over the frame. */
-    const shadowCast=(S.castMode==='shadow');
-    const c=shadowCast?shadowTone():col(2);
+    /* a cast is always a shadow now — the light variant was removed */
+    const shadowCast=true;
+    const c=shadowCast?castShadowTone():col(2);
     const rot=(rng()-0.5)*(6+S.organic*14);
     const csc=clamp(S.castScale,0.3,2.2);
     const ca2=Math.cos(rot*Math.PI/180), sa2=Math.sin(rot*Math.PI/180);
@@ -948,89 +969,122 @@ ${ramp}
       return [ctx2+dx*ca2-dy*sa2, cty2+dx*sa2+dy*ca2];
     };
     const shapes=[];
-    const R=(x,y,w,h)=>shapes.push([[x,y],[x+w,y],[x+w,y+h],[x,y+h]].map(q=>T(q[0],q[1])));
-    if(S.cast==='shoji'){
-      const cols=3+Math.round(rng()*2), rows=4+Math.round(rng()*2);
-      const gw=W*(0.62+rng()*0.3), gh=H*(0.5+rng()*0.32);
-      const ox=W/2-gw/2+(rng()-0.5)*W*0.2-ax*W*0.10;
-      const oy=H/2-gh/2+(rng()-0.5)*H*0.2-ay*H*0.10;
-      const mullion=Math.min(gw/cols,gh/rows)*(0.10+S.organic*0.06);
-      for(let i=0;i<cols;i++)for(let j=0;j<rows;j++)
-        R(ox+i*gw/cols+mullion/2, oy+j*gh/rows+mullion/2, gw/cols-mullion, gh/rows-mullion);
-    }else if(S.cast==='slat'){
-      const n=5+Math.round(rng()*4+S.organic*3);
-      const alongX=Math.abs(ax)>Math.abs(ay);
-      const spread=(alongX?W:H)*(0.65+rng()*0.35);
-      const start=(alongX?W:H)/2-spread/2;
-      const gap=spread/n, bar=gap*(0.42+rng()*0.22);
+    const M=Math.min(W,H);
+    /* A cast reads as a real shadow when the objects share one light: they stand
+       on a common surface, lean the same way, and are not individually rotated.
+       The lean is the Angle control, so it is a decision rather than a side
+       effect of the light direction. */
+    const lean=Math.tan(clamp(S.castAngle,-40,40)*Math.PI/180);
+    const place=(unit,px,baseY,scl,tiltDeg)=>{
+      const a=(tiltDeg||0)*Math.PI/180, ca3=Math.cos(a), sa3=Math.sin(a);
+      for(const contour of unit){
+        shapes.push(contour.map(q=>{
+          /* shear about the foot, so the base stays planted and the top leans */
+          let x=(q[0]+lean*(0.5-q[1]))*scl, y=q[1]*scl;
+          const rx2=x*ca3-y*sa3, ry2=x*sa3+y*ca3;
+          return T(px+rx2, baseY-0.5*scl+ry2);
+        }));
+      }
+    };
+
+    if(S.cast==='coupe' || S.cast==='flute'){
+      const isCoupe=(S.cast==='coupe');
+      const unit=isCoupe?ICON_COUPE:ICON_FLUTE;
+      const aspect=isCoupe?0.723:0.286;
+      const n=1;                              /* one glass, always */
+      /* Depth model. Each glass gets a stratified depth so they genuinely differ
+         instead of clustering, and every perspective cue is driven from it:
+         further back means smaller, feet higher up the frame, and the group
+         converging horizontally. Changing scale alone would read as assorted
+         glassware rather than as a receding tabletop. A fourth cue comes free —
+         the cast gradient already fades toward the far end of the light axis, so
+         a glass set further back renders fainter, which is atmospheric
+         perspective at no extra cost. */
+      const depths=[];
+      for(let i=0;i<n;i++)depths.push((i+0.12+rng()*0.76)/n);
+      for(let i=depths.length-1;i>0;i--){            /* shuffle, so depth and
+                                                        left-to-right order are
+                                                        independent */
+        const k=Math.floor(rng()*(i+1)); const t=depths[i]; depths[i]=depths[k]; depths[k]=t;
+      }
+      const h0=M*(isCoupe?0.52:0.60)*(0.96+rng()*0.10)*[1,0.92,0.82,0.74][n-1];
+      const baseY0=H*(0.76+(rng()-0.5)*0.04);
+      const scales=depths.map(d=>h0*(1-0.34*d));
+      const gaps=[];
+      for(let i=0;i<n-1;i++){
+        const wA=scales[i]*aspect, wB=scales[i+1]*aspect;
+        const dAvg=(depths[i]+depths[i+1])/2;
+        gaps.push(Math.max((wA+wB)/2*(0.98+rng()*0.20)*(1-0.22*dAvg), M*0.13));
+      }
+      const total=gaps.reduce((a,b)=>a+b,0);
+      let px=W*0.5-total/2+(rng()-0.5)*W*0.03;
       for(let i=0;i<n;i++){
-        const t=start+i*gap;
-        if(alongX)R(t,-H*0.25,bar,H*1.5); else R(-W*0.25,t,W*1.5,bar);
+        const d=depths[i];
+        place(unit, px, baseY0-d*H*0.085, scales[i], (rng()-0.5)*1.2);
+        if(i<n-1)px+=gaps[i];
       }
-    }else if(S.cast==='leaves'){
-      /* komorebi: a few boughs entering from one edge, foliage clustered along
-         their length. Branches taper, leaves are pointed lenses turned roughly
-         with the bough they hang from, so it reads as growth rather than as
-         scattered blobs. */
-      const M=Math.min(W,H);
-      const orig=[W*(0.08+rng()*0.84), -H*0.10];
-      const nb=3+Math.round(rng()*2+S.organic*2);
-      for(let i=0;i<nb;i++){
-        const ang=(-58+((i+0.5)/nb)*116+(rng()-0.5)*24)*Math.PI/180;
-        const len=Math.max(W,H)*(0.55+rng()*0.55);
-        const dx2=Math.sin(ang), dy2=Math.cos(ang);
-        const nx2=dy2, ny2=-dx2;
-        const bw=M*(0.016+rng()*0.020);
-        const ex=orig[0]+dx2*len, ey=orig[1]+dy2*len;
-        shapes.push([[orig[0]+nx2*bw,orig[1]+ny2*bw],[orig[0]-nx2*bw,orig[1]-ny2*bw],
-                     [ex-nx2*bw*0.22,ey-ny2*bw*0.22],[ex+nx2*bw*0.22,ey+ny2*bw*0.22]]
-                    .map(q=>T(q[0],q[1])));
-        const nl=5+Math.round(rng()*5+S.organic*6);
-        for(let j=0;j<nl;j++){
-          const t=0.22+rng()*0.80;
-          const lx=orig[0]+dx2*len*t+(rng()-0.5)*M*0.13;
-          const ly=orig[1]+dy2*len*t+(rng()-0.5)*M*0.13;
-          const lr=M*(0.028+rng()*0.042);
-          const la=ang+(rng()-0.5)*1.7;
-          const cl=Math.cos(la), sl=Math.sin(la);
-          const seg=12, lp=[];
-          for(let k=0;k<seg;k++){
-            const u=k/seg*Math.PI*2;
-            const su=Math.sin(u);
-            const ex2=lr*Math.cos(u), ey2=lr*0.46*Math.sign(su)*Math.pow(Math.abs(su),1.5);
-            lp.push(T(lx+ex2*cl-ey2*sl, ly+ex2*sl+ey2*cl));
-          }
-          shapes.push(lp);
-        }
-      }
+    }else if(S.cast==='piano'){
+      place(ICON_PIANO, W*(0.5+(rng()-0.5)*0.10), H*(0.82+(rng()-0.5)*0.05),
+            M*(0.62+rng()*0.12), (rng()-0.5)*1.0);
     }else{
-      const n=6+Math.round(rng()*4+S.organic*4);
-      for(let i=0;i<n;i++){
-        const px=W*(0.08+rng()*0.84), py=H*(0.08+rng()*0.84);
-        const rr=Math.min(W,H)*(0.045+rng()*0.075);
-        const seg=14, pts=[];
-        for(let k=0;k<seg;k++){
-          const a2=k/seg*Math.PI*2, kk=1+(rng()-0.5)*(0.35+S.organic*0.5);
-          pts.push(T(px+Math.cos(a2)*rr*kk, py+Math.sin(a2)*rr*kk*0.82));
-        }
-        shapes.push(pts);
-      }
+      place(ICON_CHANDELIER, W*(0.5+(rng()-0.5)*0.08), H*(0.54+(rng()-0.5)*0.08),
+            M*(0.30+rng()*0.05), (rng()-0.5)*1.6);
     }
-    /* A light cast screens onto the lit surface and fades into the dark; a
-       shadow cast multiplies and fades the other way, so the bars land where
-       there is something for them to fall across. */
-    const peak=clamp(0.55+S.castAmt*0.55,0,1);
-    const gid=shadowCast
-      ? addLinear(cx-ax*L*0.55,cy-ay*L*0.55,cx+ax*L*0.62,cy+ay*L*0.62,
-          `<stop stop-color="${c}" stop-opacity="0"/><stop offset="0.45" stop-color="${c}" stop-opacity="${(peak*0.55).toFixed(2)}"/><stop offset="1" stop-color="${c}" stop-opacity="${peak.toFixed(2)}"/>`)
-      : addLinear(cx+ax*L*0.55,cy+ay*L*0.55,cx-ax*L*0.62,cy-ay*L*0.62,
-          `<stop stop-color="${c}" stop-opacity="${peak.toFixed(2)}"/><stop offset="0.55" stop-color="${c}" stop-opacity="${(peak*0.42).toFixed(2)}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/>`);
-    const fid=addBlur(sd*(0.52+S.organic*0.34),-W*0.6,-H*0.6,W*2.2,H*2.2);
-    const castOp=clamp(0.25+S.castAmt*0.75,0,1);
+    /* The cast used to fade along the light axis. That put a shadow standing at
+       the foot of the frame — where objects actually stand — into the
+       transparent end of its own gradient, so it all but vanished over the dark
+       part of the artwork. It is a flat fill now: present wherever you place it,
+       at the strength you set. */
+    const fid=addBlur(Math.max(M*S.castBlur*0.06,0.4),-W*0.6,-H*0.6,W*2.2,H*2.2);
+    const castOp=clamp(0.08+S.castAmt*0.72,0,1);
+    const dens=clamp(S.castDensity,0,1);
+    const inset=(pts,k)=>{
+      const n=pts.length;
+      return pts.map((q,i)=>{
+        const a2=pts[(i+2)%n], b2=pts[(i-2+n)%n];
+        let nx=a2[1]-b2[1], ny=-(a2[0]-b2[0]);
+        const L2=Math.hypot(nx,ny)||1;
+        return [q[0]-nx/L2*k, q[1]-ny/L2*k];
+      });
+    };
+    const wander=(pts,amp)=>{
+      const n=pts.length, ph1=rng()*Math.PI*2, ph2=rng()*Math.PI*2;
+      const f1=1+Math.floor(rng()*2), f2=3+Math.floor(rng()*3);
+      return pts.map((q,i)=>{
+        const t=i/n;
+        const w=Math.sin(t*Math.PI*2*f1+ph1)*0.62+Math.sin(t*Math.PI*2*f2+ph2)*0.38;
+        const a2=pts[(i+2)%n], b2=pts[(i-2+n)%n];
+        let nx=a2[1]-b2[1], ny=-(a2[0]-b2[0]);
+        const L2=Math.hypot(nx,ny)||1;
+        return [q[0]+nx/L2*w*amp, q[1]+ny/L2*w*amp];
+      });
+    };
+    const rev=a=>a.slice().reverse();
+    /* Density is a band between the outline and an inset copy of it, added in
+       multiply. Bounding it by the silhouette is what keeps it from reading as
+       an outline — a stroke straddles the edge and prints half of itself on the
+       background. Where the object is thin — the stem, the foot, the rim seen
+       edge-on — the band closes over the full width and those parts go densest,
+       while the open bowl keeps the base tone. The inset wanders and its width
+       varies per contour, so no two rims print at the same weight. */
+    const k1=M*(0.004+dens*0.026);
+    const band=[];
+    for(const sh of shapes){
+      band.push(sh);
+      band.push(rev(wander(inset(sh,k1*(0.70+rng()*0.70)),k1*0.50)));
+    }
+    const baseOp=castOp*(1-dens*0.20);
+    const bandOp=castOp*dens*0.95;
     for(const cp of ORDER){
       const d=shapes.map(sh=>quadPath(bake(sh,cp,cx,cy))).join('');
-      const o=castOp*cp.op;
-      body.push(`<g filter="url(#${fid})" opacity="${o.toFixed(3)}" style="mix-blend-mode:${shadowCast?'multiply':'screen'}">\n<path d="${d}" fill="url(#${gid})"/>\n</g>`);
+      body.push(`<g filter="url(#${fid})" opacity="${(baseOp*cp.op).toFixed(3)}" style="mix-blend-mode:multiply">\n<path d="${d}" fill="${c}"/>\n</g>`);
+      /* motion ghosts are faint enough that their internal variation is invisible,
+         so only the primary copy carries the band — otherwise Drift would
+         multiply an already heavy layer count */
+      if(dens>0.01 && (!motion || cp.op>0.999)){
+        const db=band.map(sh=>quadPath(bake(sh,cp,cx,cy))).join('');
+        body.push(`<g filter="url(#${fid})" opacity="${(bandOp*cp.op).toFixed(3)}" style="mix-blend-mode:multiply">\n<path d="${db}" fill="${c}"/>\n</g>`);
+      }
     }
   }
 
@@ -1094,7 +1148,7 @@ let raf=null;
 const schedule=()=>{if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(draw);};
 
 /* ---------- history ---------- */
-const KEYS=['frame','form','dir','colors','mid','falloff','sat','contrast','highlights','shadows','width','inset','blur','organic','bloom','drift','driftDir','cast','castMode','castAmt','castScale','castX','castY','seed','grain','grainSize','grainStyle','texture','ref'];
+const KEYS=['frame','form','dir','colors','mid','falloff','sat','contrast','highlights','shadows','width','inset','blur','organic','bloom','drift','driftDir','cast','castAmt','castAngle','castBlur','castDensity','castScale','castX','castY','seed','grain','grainSize','grainStyle','texture','ref'];
 function snap(){const o={};KEYS.forEach(k=>o[k]=S[k]);return JSON.stringify(o);}
 const DEFAULT_SNAP=snap();
 let baseline=snap(), undoStack=[], redoStack=[];
@@ -1140,10 +1194,14 @@ document.querySelectorAll('.phead').forEach(h=>{
 $('undo').onclick=undo;
 $('redo').onclick=redo;
 
-/* Randomize rolls composition, palette, light, motion and cast. Ranges are
-   bounded so the result lands in family rather than anywhere.
-   Deliberately HELD, never rolled — the whole Finish panel plus the frame:
-     frame · sat · contrast · highlights · shadows · grain · grainSize · grainStyle
+/* Randomize rolls composition, palette, light and motion. Ranges are bounded so
+   the result lands in family rather than anywhere.
+   Deliberately HELD, never rolled — the frame, the whole Finish panel, and the
+   whole Cast panel, since a cast is placed intentionally at the end rather than
+   stumbled into:
+     frame · sat · contrast · highlights · shadows · grain · grainSize ·
+     grainStyle · cast · castAmt · castAngle · castBlur ·
+     castDensity · castScale · castX · castY
    Anything added to the tool stays out of this list unless it is asked for. */
 $('randomize').onclick=()=>{
   const R=Math.random, pick=a=>a[Math.floor(R()*a.length)];
@@ -1162,12 +1220,6 @@ $('randomize').onclick=()=>{
   S.organic=R()*0.85;
   S.bloom=R()*0.55;
   S.drift=R()<0.6?0:R()*0.4;
-  S.cast=pick(['none','none','none','shoji','slat','dapple','leaves']);
-  S.castMode=pick(['light','light','shadow']);
-  S.castAmt=0.2+R()*0.6;
-  S.castScale=0.6+R()*1.0;
-  S.castX=(R()-0.5)*0.5;
-  S.castY=(R()-0.5)*0.5;
   S.driftDir=pick(['across','across','along','spin']);
   S.falloff=R()*0.85;
   S.mid=0.36+R()*0.28;
@@ -1206,7 +1258,6 @@ function syncChips(){
   chips($('forms2'),FORMS.filter(f=>f[2]==='org'),()=>S.form,v=>S.form=v);
   chips($('dirs'),DIRS,()=>S.dir,v=>S.dir=v);
   chips($('casts'),CASTS,()=>S.cast,v=>S.cast=v);
-  chips($('castModes'),CASTMODES,()=>S.castMode,v=>S.castMode=v);
   chips($('drifts'),DRIFTDIRS,()=>S.driftDir,v=>S.driftDir=v);
   const cur=S.colors.join();
   document.querySelectorAll('#palettes .chip, #palettes2 .chip').forEach(c=>
