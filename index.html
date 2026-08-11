@@ -800,6 +800,30 @@ ${ramp}
     return pts.map(q=>{const dx=q[0]-ox,dy=q[1]-oy;return [ox+dx*ca-dy*sa, oy+dx*sa+dy*ca];});
   };
   const quadPath=pts=>'M'+pts.map(q=>q[0].toFixed(1)+' '+q[1].toFixed(1)).join('L')+'Z';
+  /* A band with square ends stops dead wherever it stops — and because the field
+     keeps a margin the band does not, those ends print against bare ground and
+     the frame edge reads as a row of blocks. Tapering the thickness to nothing at
+     both ends lets a streak run off the frame without ever showing where it
+     began. Real motion streaks taper anyway. */
+  const taperEdge=0.22;
+  const taperAt=u=>{
+    const t=Math.min(u,1-u)/taperEdge;
+    return t>=1?1:t*t*(3-2*t);
+  };
+  /* a streak as a spindle: sampled along its length, half-thickness scaled by the
+     taper, out along one side and back along the other */
+  const spindle=(x0,y0,x1,y1,halfA,halfB,seg)=>{
+    const dx=x1-x0, dy=y1-y0, L3=Math.hypot(dx,dy)||1;
+    const nx=-dy/L3, ny=dx/L3, top=[], bot=[];
+    for(let i=0;i<=seg;i++){
+      const u=i/seg, k=taperAt(u);
+      const hw=(halfA+(halfB-halfA)*u)*k;
+      const px2=x0+dx*u, py2=y0+dy*u;
+      top.push([px2+nx*hw, py2+ny*hw]);
+      bot.push([px2-nx*hw, py2-ny*hw]);
+    }
+    return top.concat(bot.reverse());
+  };
   const addBlur=(sdv,x,y,w,h)=>{
     const id='filter'+(fi++)+'_f'+sfx, pd=sdv*3;
     defs.push(blurFilter(id,sdv,x-pd,y-pd,w+2*pd,h+2*pd));
@@ -891,29 +915,23 @@ ${ramp}
       const n=3+Math.round(S.organic*3.5);
       const alongX=Math.abs(ax)>Math.abs(ay);
       for(let i=0;i<n;i++){
-        /* Bands are spread evenly with bounded jitter rather than free jitter,
-           so two never land on top of each other and leave a gap elsewhere. */
-        const t=(i+0.5)/n+(rng()-0.5)*(0.55/n);
-        const ci=t>0.6?2:(t>0.28?1:0);
-        const c=col(ci);
-        const thick=D*(0.09+rng()*0.15)*(0.7+S.organic*0.55);
+        const t=(i+0.3+rng()*0.4)/n;
+        const c=t>0.62?col(2):(t>0.3?col(1):col(0));
+        const thick=D*(0.07+rng()*0.16)*(0.7+S.organic*0.7);
         const px=cx-ax*L/2+ax*L*t, py=cy-ay*L/2+ay*L*t;
-        /* run well past the frame so a rotated band never shows an end */
-        const ext=2.6, offX=-W*(ext-1)/2, offY=-H*(ext-1)/2;
-        const x=alongX?px-thick/2:offX, y=alongX?offY:py-thick/2;
-        const w=alongX?thick:W*ext, h=alongX?H*ext:thick;
-        /* tighter arc at high Organic — past a few degrees a full-width band
-           reads as a slash across the frame rather than as travel */
-        const deg=(rng()-0.5)*2*(1.5+S.organic*4.5);
+        const x=alongX?px-thick/2:-W*0.2, y=alongX?-H*0.2:py-thick/2;
+        const w=alongX?thick:W*1.4, h=alongX?H*1.4:thick;
+        const deg=(rng()-0.5)*2*(2+S.organic*9);
         const mx2=x+w/2, my2=y+h/2;
-        const corners=rotPts([[x,y],[x+w,y],[x+w,y+h],[x,y+h]],deg,mx2,my2);
+        /* run the spindle along the band's length; thickness is its cross-axis */
+        const ends=alongX?[[mx2,y],[mx2,y+h]]:[[x,my2],[x+w,my2]];
+        const half=alongX?w/2:h/2;
+        const corners=rotPts(spindle(ends[0][0],ends[0][1],ends[1][0],ends[1][1],half,half,44),deg,mx2,my2);
         const ge=rotPts(alongX?[[x,my2],[x+w,my2]]:[[mx2,y],[mx2,y+h]],deg,mx2,my2);
         const gid=addLinear(ge[0][0],ge[0][1],ge[1][0],ge[1][1],
           `<stop stop-color="${c}" stop-opacity="0"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/>`);
-        /* the blur has to scale with the band, or a thin one renders as a bar */
-        const fid=addBlur(Math.max(sd*0.30,thick*0.30),-W*0.8,-H*0.8,W*2.6,H*2.6);
-        const op=(0.40+rng()*0.36)*(ci===0?0.6:1);
-        body.push(`<g filter="url(#${fid})" opacity="${op.toFixed(2)}">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
+        const fid=addBlur(sd*0.30,-W*0.6,-H*0.6,W*2.2,H*2.2);
+        body.push(`<g filter="url(#${fid})" opacity="${(0.42+rng()*0.4).toFixed(2)}">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
       }
     }
 
@@ -922,31 +940,22 @@ ${ramp}
          set, each sheet tapered so it has a near and a far edge, and centre lines
          spread across the frame so every one of them actually crosses it. */
       const n=2+Math.round(S.organic*2.4);
-      /* Folds hang with the light rather than at an arbitrary angle, and spread
-         across the axis perpendicular to it — so a side-lit frame gets sheets
-         running the other way instead of the same vertical bars. */
-      const lightHoriz=(S.dir==='left'||S.dir==='right');
-      const base=(lightHoriz?90:0)+(rng()-0.5)*46;
-      const span=Math.max(W,H)*2.9;
+      const base=-30+rng()*60;
+      const span=Math.max(W,H)*2.1;
       for(let i=0;i<n;i++){
-        const ci=[2,1,2,0][i%4];
-        const c=col(ci);
-        const deg=base+(rng()-0.5)*(9+S.organic*16);
-        const wTop=Math.max(W,H)*(0.15+rng()*0.19)*(0.78+S.organic*0.5);
-        const wBot=wTop*(0.55+rng()*0.95);
-        const t=(i+0.5)/n+(rng()-0.5)*(0.5/n);
-        const px=lightHoriz?W/2:W*t, py=lightHoriz?H*t:H/2;
-        const corners=rotPts([[px-wTop/2,py-span/2],[px+wTop/2,py-span/2],
-                              [px+wBot/2,py+span/2],[px-wBot/2,py+span/2]],deg,px,py);
+        const c=[col(2),col(1),col(0),col(1)][i%4];
+        const deg=base+(rng()-0.5)*(9+S.organic*18);
+        const wTop=Math.max(W,H)*(0.12+rng()*0.20)*(0.7+S.organic*0.6);
+        const wBot=wTop*(0.45+rng()*1.15);
+        const t=(i+0.5)/n+(rng()-0.5)*(0.6/n);
+        const px=W*t, py=H/2;
+        const corners=rotPts(spindle(px,py-span/2,px,py+span/2,wTop/2,wBot/2,44),deg,px,py);
         const mw=Math.max(wTop,wBot);
         const ge=rotPts([[px-mw/2,py],[px+mw/2,py]],deg,px,py);
         const gid=addLinear(ge[0][0],ge[0][1],ge[1][0],ge[1][1],
           `<stop stop-color="${c}" stop-opacity="0"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/>`);
-        /* soften in proportion to the sheet, and let a ground-toned fold sit
-           back — at full strength it reads as a tear rather than as depth */
-        const fid=addBlur(Math.max(sd*0.45,mw*0.22),-W*0.8,-H*0.8,W*2.6,H*2.6);
-        const op=(0.30+rng()*0.26)*(ci===0?0.45:1);
-        body.push(`<g filter="url(#${fid})" opacity="${op.toFixed(2)}">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
+        const fid=addBlur(sd*0.45,-W*0.6,-H*0.6,W*2.2,H*2.2);
+        body.push(`<g filter="url(#${fid})" opacity="${(0.30+rng()*0.28).toFixed(2)}">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
       }
     }
   }
