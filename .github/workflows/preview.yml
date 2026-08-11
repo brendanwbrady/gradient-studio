@@ -1,0 +1,62 @@
+# Gives every pull request its own live URL, and cleans it up on close.
+name: Preview
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+
+      - name: Publish preview
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          destination_dir: preview/pr-${{ github.event.number }}
+          keep_files: true
+
+      - name: Post the link on the pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/preview/pr-${{ github.event.number }}/
+        run: |
+          BODY="Live preview: $URL
+          
+          Updates automatically on every push to this branch. Allow a minute after the deploy finishes."
+          gh pr comment ${{ github.event.number }} --body "$BODY" --edit-last \
+            || gh pr comment ${{ github.event.number }} --body "$BODY"
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Remove this preview
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf "preview/pr-${{ github.event.number }}"
+          git add -A
+          git commit -m "Remove preview for PR #${{ github.event.number }}" || exit 0
+          git push
