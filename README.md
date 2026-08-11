@@ -47,7 +47,7 @@ Frames: 8:9 (960×1080), 16:9, 1:1, 9:16, and Phone (1179×2556).
 | **Light** | Direction, middle point, falloff, bloom |
 | **Hand** | Organic, seed |
 | **Motion** | Drift, direction (across / along / spin) |
-| **Cast** | Pattern (coupe / flute / piano / chandelier), strength, angle, blur, density, scale, position |
+| **Cast** | Pattern (coupe / flute / piano / chandelier), strength, angle, blur, scale, position |
 | **Finish** | Saturation, contrast, highlights, shadows, grain |
 
 **Seed** governs every random decision — wave phases, gradient tilt, bloom placement,
