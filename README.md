@@ -1,3 +1,4 @@
+[README (1).md](https://github.com/user-attachments/files/30945745/README.1.md)
 # Gradient Studio
 
 A browser-based generator for soft, grained gradient fields, built to hand off cleanly
@@ -64,27 +65,39 @@ sampling. Panel open/closed state is excluded, so undo never moves the interface
 
 ## Deploys
 
-Because it is a single static file, hosting is trivial. Two options:
+Hosting is entirely inside GitHub — GitHub Pages, driven by two workflows in
+`.github/workflows/`. There is no external service and no build step.
 
-### GitHub Pages — one live URL
+**One-time setup**
 
-Settings → Pages → Deploy from branch → `main` / root. Publishes to
-`https://<org>.github.io/<repo>/` within a minute of each push to `main`.
+1. Push this repo, including `.github/workflows/`.
+2. The Deploy workflow runs and creates a `gh-pages` branch.
+3. Settings → Pages → Source: *Deploy from a branch* → `gh-pages` → `/ (root)`.
 
-Simplest possible setup, but it only ever serves one branch.
+The live site then serves from:
 
-### Netlify or Cloudflare Pages — a URL per branch
+```
+https://<owner>.github.io/<repo>/
+```
 
-Connect the repo; no build command, publish directory `.`. Both then give:
+**What runs**
 
-- a production URL from `main`
-- a **unique preview URL for every branch and every pull request**
+| Workflow | Trigger | Result |
+| --- | --- | --- |
+| `deploy.yml` | push to `main` | publishes to the site root |
+| `preview.yml` | pull request opened or updated | publishes to `/preview/pr-<N>/` and comments the URL on the PR |
+| `preview.yml` | pull request closed | deletes that preview folder |
 
-That second point is the reason to prefer this over Pages: work in progress becomes a
-link that can be shared and reviewed before it lands on `main`. `netlify.toml` in this
-repo is already configured for it.
+Both authenticate with the `GITHUB_TOKEN` the runner creates automatically. No
+personal access token, no secrets to configure.
 
----
+**Worth knowing**
+
+- Previews are per **pull request**, not per branch. Push a branch and open a pull
+  request — draft is fine — to get a URL.
+- GitHub Pages on a **private** repository requires a paid GitHub plan. On a free
+  plan the repository has to be public for any of this to publish.
+- Deploys take under a minute; Pages can take another minute to serve the new file.
 
 ## Working on it
 
