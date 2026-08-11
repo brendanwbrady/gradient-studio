@@ -256,7 +256,6 @@
       <div class="row" data-ctrl="castAmt"><label>Strength</label></div>
       <div class="row" data-ctrl="castAngle"><label>Angle</label></div>
       <div class="row" data-ctrl="castBlur"><label>Blur</label></div>
-      <div class="row" data-ctrl="castDensity"><label>Density</label></div>
       <div class="row" data-ctrl="castScale"><label>Scale</label></div>
       <div class="row" data-ctrl="castX"><label>Position X</label></div>
       <div class="row" data-ctrl="castY"><label>Position Y</label></div>
@@ -360,10 +359,10 @@ function shadowTone(){
 }
 /* a cast shadow reads as a shadow only if it is close to black — the lifted
    ground tone used for atmospheric depth is far too pale for an object */
-function castShadowTone(){
+function castShadowTone(L){
   const [r,g,b]=hexToRgb(col(0));
   const [h,sa]=rgbToHsl(r,g,b);
-  const [R,G,B]=hslToRgb(h,clamp(sa*0.55,0,1),0.055);
+  const [R,G,B]=hslToRgb(h,clamp(sa*0.55,0,1),clamp(L===undefined?0.055:L,0,1));
   return rgbToHex(R,G,B);
 }
 function lum(hex){const[r,g,b]=hexToRgb(hex);return 0.2126*r+0.7152*g+0.0722*b;}
@@ -451,7 +450,7 @@ const S={
   colors:['#29131D','#99904C','#C6C6BA'], mid:0.5, falloff:0.42, sat:1, contrast:1, highlights:0, shadows:0,
   width:1, inset:0.068, blur:0.075,
   organic:0.35, bloom:0.3, drift:0, seed:184,
-  cast:'none', castAmt:0.45, castAngle:4, castBlur:0.12, castDensity:0.50, castScale:1, castX:0, castY:0, driftDir:'across',
+  cast:'none', castAmt:0.45, castAngle:4, castBlur:0.12, castScale:1, castX:0, castY:0, driftDir:'across',
   grain:0.07, grainSize:1, grainStyle:'neutral', texture:'grain',
   ref:[]
 };
@@ -473,7 +472,6 @@ const CTRLS=[
   {id:'castAmt',  min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
   {id:'castAngle',min:-40, max:40,  step:1,    scale:1,  dec:0,unit:''},
   {id:'castBlur', min:0,   max:1,   step:0.01, scale:100,dec:0,unit:'%'},
-  {id:'castDensity',min:0, max:1,   step:0.01, scale:100,dec:0,unit:'%'},
   {id:'castScale',min:0.3, max:2.2, step:0.01, scale:100,dec:0,unit:'%'},
   {id:'castX',    min:-1,  max:1,   step:0.01, scale:100,dec:0,unit:'%'},
   {id:'castY',    min:-1,  max:1,   step:0.01, scale:100,dec:0,unit:'%'},
@@ -966,8 +964,13 @@ ${ramp}
        the lit surface and dies in the dark, instead of floating over the frame. */
     /* a cast is always a shadow now — the light variant was removed */
     const shadowCast=true;
-    const c=shadowCast?castShadowTone():col(2);
-    const rot=(rng()-0.5)*(6+S.organic*14);
+    /* The cast runs on its own generator rather than the artwork's seed. It is a
+       deliberate finishing element, so Shuffle re-rolls the field beneath it and
+       leaves the shadow exactly where it was placed. Everything about the cast
+       is therefore driven by the Cast panel alone. */
+    const crng=mulberry32(0x9E3779B9);
+    const c=shadowCast?castShadowTone(1-clamp(S.castAmt,0,1)*0.86):col(2);
+    const rot=(crng()-0.5)*(6+S.organic*14);
     const csc=clamp(S.castScale,0.3,2.2);
     const ca2=Math.cos(rot*Math.PI/180), sa2=Math.sin(rot*Math.PI/180);
     const ctx2=W/2+S.castX*W, cty2=H/2+S.castY*H;
@@ -1010,34 +1013,34 @@ ${ramp}
          a glass set further back renders fainter, which is atmospheric
          perspective at no extra cost. */
       const depths=[];
-      for(let i=0;i<n;i++)depths.push((i+0.12+rng()*0.76)/n);
+      for(let i=0;i<n;i++)depths.push((i+0.12+crng()*0.76)/n);
       for(let i=depths.length-1;i>0;i--){            /* shuffle, so depth and
                                                         left-to-right order are
                                                         independent */
-        const k=Math.floor(rng()*(i+1)); const t=depths[i]; depths[i]=depths[k]; depths[k]=t;
+        const k=Math.floor(crng()*(i+1)); const t=depths[i]; depths[i]=depths[k]; depths[k]=t;
       }
-      const h0=M*(isCoupe?0.52:0.60)*(0.96+rng()*0.10)*[1,0.92,0.82,0.74][n-1];
-      const baseY0=H*(0.76+(rng()-0.5)*0.04);
+      const h0=M*(isCoupe?0.52:0.60)*(0.96+crng()*0.10)*[1,0.92,0.82,0.74][n-1];
+      const baseY0=H*(0.76+(crng()-0.5)*0.04);
       const scales=depths.map(d=>h0*(1-0.34*d));
       const gaps=[];
       for(let i=0;i<n-1;i++){
         const wA=scales[i]*aspect, wB=scales[i+1]*aspect;
         const dAvg=(depths[i]+depths[i+1])/2;
-        gaps.push(Math.max((wA+wB)/2*(0.98+rng()*0.20)*(1-0.22*dAvg), M*0.13));
+        gaps.push(Math.max((wA+wB)/2*(0.98+crng()*0.20)*(1-0.22*dAvg), M*0.13));
       }
       const total=gaps.reduce((a,b)=>a+b,0);
-      let px=W*0.5-total/2+(rng()-0.5)*W*0.03;
+      let px=W*0.5-total/2+(crng()-0.5)*W*0.03;
       for(let i=0;i<n;i++){
         const d=depths[i];
-        place(unit, px, baseY0-d*H*0.085, scales[i], (rng()-0.5)*1.2);
+        place(unit, px, baseY0-d*H*0.085, scales[i], (crng()-0.5)*1.2);
         if(i<n-1)px+=gaps[i];
       }
     }else if(S.cast==='piano'){
-      place(ICON_PIANO, W*(0.5+(rng()-0.5)*0.10), H*(0.82+(rng()-0.5)*0.05),
-            M*(0.62+rng()*0.12), (rng()-0.5)*1.0);
+      place(ICON_PIANO, W*(0.5+(crng()-0.5)*0.10), H*(0.82+(crng()-0.5)*0.05),
+            M*(0.62+crng()*0.12), (crng()-0.5)*1.0);
     }else{
-      place(ICON_CHANDELIER, W*(0.5+(rng()-0.5)*0.08), H*(0.54+(rng()-0.5)*0.08),
-            M*(0.30+rng()*0.05), (rng()-0.5)*1.6);
+      place(ICON_CHANDELIER, W*(0.5+(crng()-0.5)*0.08), H*(0.54+(crng()-0.5)*0.08),
+            M*(0.30+crng()*0.05), (crng()-0.5)*1.6);
     }
     /* The cast used to fade along the light axis. That put a shadow standing at
        the foot of the frame — where objects actually stand — into the
@@ -1045,55 +1048,16 @@ ${ramp}
        part of the artwork. It is a flat fill now: present wherever you place it,
        at the strength you set. */
     const fid=addBlur(Math.max(M*S.castBlur*0.06,0.4),-W*0.6,-H*0.6,W*2.2,H*2.2);
-    const castOp=clamp(0.08+S.castAmt*0.72,0,1);
-    const dens=clamp(S.castDensity,0,1);
-    const inset=(pts,k)=>{
-      const n=pts.length;
-      return pts.map((q,i)=>{
-        const a2=pts[(i+2)%n], b2=pts[(i-2+n)%n];
-        let nx=a2[1]-b2[1], ny=-(a2[0]-b2[0]);
-        const L2=Math.hypot(nx,ny)||1;
-        return [q[0]-nx/L2*k, q[1]-ny/L2*k];
-      });
-    };
-    const wander=(pts,amp)=>{
-      const n=pts.length, ph1=rng()*Math.PI*2, ph2=rng()*Math.PI*2;
-      const f1=1+Math.floor(rng()*2), f2=3+Math.floor(rng()*3);
-      return pts.map((q,i)=>{
-        const t=i/n;
-        const w=Math.sin(t*Math.PI*2*f1+ph1)*0.62+Math.sin(t*Math.PI*2*f2+ph2)*0.38;
-        const a2=pts[(i+2)%n], b2=pts[(i-2+n)%n];
-        let nx=a2[1]-b2[1], ny=-(a2[0]-b2[0]);
-        const L2=Math.hypot(nx,ny)||1;
-        return [q[0]+nx/L2*w*amp, q[1]+ny/L2*w*amp];
-      });
-    };
-    const rev=a=>a.slice().reverse();
-    /* Density is a band between the outline and an inset copy of it, added in
-       multiply. Bounding it by the silhouette is what keeps it from reading as
-       an outline — a stroke straddles the edge and prints half of itself on the
-       background. Where the object is thin — the stem, the foot, the rim seen
-       edge-on — the band closes over the full width and those parts go densest,
-       while the open bowl keeps the base tone. The inset wanders and its width
-       varies per contour, so no two rims print at the same weight. */
-    const k1=M*(0.004+dens*0.026);
-    const band=[];
-    for(const sh of shapes){
-      band.push(sh);
-      band.push(rev(wander(inset(sh,k1*(0.70+rng()*0.70)),k1*0.50)));
-    }
-    const baseOp=castOp*(1-dens*0.20);
-    const bandOp=castOp*dens*0.95;
+    /* Strength is the multiply colour's own darkness, not a fade of the layer.
+       Fading a layer mixes the shadow back toward the artwork and flattens it;
+       darkening the multiplicand deepens what is already there and keeps the
+       hue underneath, which is what a real shadow does. At full strength the
+       colour is near black, at zero it is white and multiply is a no-op. */
+    /* the layer stays fully opaque; only the motion ghosts step down */
     for(const cp of ORDER){
       const d=shapes.map(sh=>quadPath(bake(sh,cp,cx,cy))).join('');
-      body.push(`<g filter="url(#${fid})" opacity="${(baseOp*cp.op).toFixed(3)}" style="mix-blend-mode:multiply">\n<path d="${d}" fill="${c}"/>\n</g>`);
-      /* motion ghosts are faint enough that their internal variation is invisible,
-         so only the primary copy carries the band — otherwise Drift would
-         multiply an already heavy layer count */
-      if(dens>0.01 && (!motion || cp.op>0.999)){
-        const db=band.map(sh=>quadPath(bake(sh,cp,cx,cy))).join('');
-        body.push(`<g filter="url(#${fid})" opacity="${(bandOp*cp.op).toFixed(3)}" style="mix-blend-mode:multiply">\n<path d="${db}" fill="${c}"/>\n</g>`);
-      }
+      const o=cp.op;
+      body.push(`<g filter="url(#${fid})"${o<0.999?` opacity="${o.toFixed(3)}"`:''} style="mix-blend-mode:multiply">\n<path d="${d}" fill="${c}"/>\n</g>`);
     }
   }
 
@@ -1157,7 +1121,7 @@ let raf=null;
 const schedule=()=>{if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(draw);};
 
 /* ---------- history ---------- */
-const KEYS=['frame','form','dir','colors','mid','falloff','sat','contrast','highlights','shadows','width','inset','blur','organic','bloom','drift','driftDir','cast','castAmt','castAngle','castBlur','castDensity','castScale','castX','castY','seed','grain','grainSize','grainStyle','texture','ref'];
+const KEYS=['frame','form','dir','colors','mid','falloff','sat','contrast','highlights','shadows','width','inset','blur','organic','bloom','drift','driftDir','cast','castAmt','castAngle','castBlur','castScale','castX','castY','seed','grain','grainSize','grainStyle','texture','ref'];
 function snap(){const o={};KEYS.forEach(k=>o[k]=S[k]);return JSON.stringify(o);}
 const DEFAULT_SNAP=snap();
 let baseline=snap(), undoStack=[], redoStack=[];
@@ -1209,8 +1173,8 @@ $('redo').onclick=redo;
    whole Cast panel, since a cast is placed intentionally at the end rather than
    stumbled into:
      frame · sat · contrast · highlights · shadows · grain · grainSize ·
-     grainStyle · cast · castAmt · castAngle · castBlur ·
-     castDensity · castScale · castX · castY
+     grainStyle · cast · castAmt · castAngle · castBlur · castScale ·
+     castX · castY
    Anything added to the tool stays out of this list unless it is asked for. */
 $('randomize').onclick=()=>{
   const R=Math.random, pick=a=>a[Math.floor(R()*a.length)];
