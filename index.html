@@ -419,9 +419,9 @@ const FRAMES={'8:9':[960,1080],'16:9':[1920,1080],'1:1':[1080,1080],'9:16':[1080
 const FORMS=[
   ['field','Field','geo'],['arch','Arch','geo'],['vault','Vault','geo'],
   ['portal','Portal','geo'],['plume','Plume','geo'],
-  ['wave','Wave','org'],['drape','Drape','org'],
-  ['mesh','Mesh','org'],['orb','Orb','org'],['smear','Smear','org'],['veil','Veil','org'],
-  ['arc','Arc','org'],['halo','Halo','org'],['reed','Reed','org']
+  ['wave','Wave','org'],['drape','Drape','org'],['swell','Swell','org'],
+  ['mesh','Mesh','org'],['orb','Orb','org'],['smear','Smear','org'],
+  ['halo','Halo','org'],['reed','Reed','org'],['slat','Slat','org'],['rift','Rift','org']
 ];
 /* forms that compose their own masses instead of one inset shape */
 const REPLACE={mesh:1,orb:1};
@@ -579,7 +579,10 @@ function fieldBox(W,H){
 }
 
 /* unit space: u across the field, v from the lit end (0) to the dark end (1) */
-function unitOutline(form,ar){
+function unitOutline(form,ar,rng){
+  /* rng is optional and only Swell uses it — the other outlines are deliberately
+     seed-independent, so Shuffle changes their surface wobble but not their kind. */
+  rng=rng||(()=>0.5);
   const P=[];
   const push=(u,v)=>P.push([u,v]);
   const arc=(cu,cv,ru,rv,a0,a1,n)=>{for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;push(cu+Math.cos(a)*ru,cv+Math.sin(a)*rv);}};
@@ -646,6 +649,47 @@ function unitOutline(form,ar){
     for(let i=n;i>=0;i--){const u=i/n;push(u,hem(u));}
     return P;
   }
+  if(form==='swell'){
+    /* Drape's opposite number. Drape hangs its hem at the dark end; this bulges
+       the bright end instead, so the lit part of the field swells toward the light
+       rather than being cut square by it.
+       Built to be lopsided rather than merely off centre. The belly sits wherever
+       the seed puts it, and each shoulder falls at its own rate — a low exponent
+       balloons out fast and flattens, a high one hangs back — so the two sides of
+       the same lobe rarely match. Two out-of-phase harmonics ride on top, weighted
+       by Organic, which puts lumps in the curve instead of leaving a clean bell.
+       Everything here is drawn from the seed, so Shuffle finds a different lobe
+       rather than the same one nudged sideways. */
+    const n=150;
+    const dep=0.26+S.organic*0.30;
+    const pk=0.22+rng()*0.56;                          /* where the belly sits */
+    const eL=0.55+rng()*1.7, eR=0.55+rng()*1.7;        /* each shoulder its own */
+    const w1=rng()*Math.PI*2, w2=rng()*Math.PI*2;
+    /* Low harmonics only. Anything faster than about three cycles is smaller than
+       the field's own blur and gets erased before it reaches the picture, so the
+       wonk has to be built at large scale to survive. */
+    const k1=1+Math.floor(rng()*2), k2=2+Math.floor(rng()*2);
+    /* The strongest lopsidedness comes from the two sides not being the same
+       height at all, rather than from the same lobe leaning. */
+    const dL=0.45+rng()*0.95, dR=0.45+rng()*0.95;
+    const lump=S.organic*(0.34+rng()*0.46);
+    const tilt=(rng()-0.5)*S.organic*0.5;              /* one end higher than the other */
+    const crown=u=>{
+      const side=u<pk;
+      const t=side ? u/Math.max(pk,1e-3) : (1-u)/Math.max(1-pk,1e-3);
+      const e=side?eL:eR;
+      /* sin(pi/2 * t) rather than t: its slope is zero where the two sides meet,
+         so the belly stays round however different the shoulders are. Raising t
+         directly makes them meet at a kink and the lobe comes out peaked. */
+      let b=(side?dL:dR)*(1-Math.pow(Math.sin(Math.PI/2*clamp(t,0,1)),e));
+      b+=lump*(0.62*Math.sin(u*Math.PI*k1+w1)+0.38*Math.sin(u*Math.PI*k2+w2))*Math.sin(Math.PI*u);
+      b+=tilt*(u-0.5);
+      return dep*clamp(b,0,1.35);
+    };
+    for(let i=0;i<=n;i++){const u=i/n;push(u,crown(u));}
+    push(1,1);push(0,1);
+    return P;
+  }
   if(form==='plume'){
     const n=72, narrow=0.32;
     const half=v=>0.5*(1-(1-narrow)*Math.pow(v,1.4));
@@ -699,7 +743,7 @@ function fieldOutline(bx,amp,rng){
   const horiz=dirHoriz();
   const uLen=horiz?bx.h:bx.w, vLen=horiz?bx.w:bx.h;
   const m=mapUnit(bx,dirAxis());
-  const raw=unitOutline(S.form,uLen/vLen).map(p=>m(p[0],p[1]));
+  const raw=unitOutline(S.form,uLen/vLen,rng).map(p=>m(p[0],p[1]));
   const pts=resample(raw,220);
   if(amp<0.5)return pts;
   const wv=waveFn(rng);
@@ -1050,34 +1094,78 @@ ${ramp}
       }
     }
 
-    if(S.form==='arc'){
-      /* Bands bent around a long radius, so the light curves through the frame
-         instead of running straight across it — the one gesture the straight
-         forms cannot make. */
-      const n=2+Math.round(rng()*1.4+S.organic*2);
-      const R0=Math.max(W,H)*(1.05+rng()*0.9);
-      const ox=cx+(rng()-0.5)*W*0.5, oy=cy+R0*(rng()<0.5?1:-1)*0.86;
+
+    /* SLAT — shadow thrown by something with structure. Every other field lays
+       light down; these are bands of dark raked across the whole frame, the way a
+       screen or a blind interrupts a room. They are multiplied in the ground
+       colour so they occlude rather than tint, they run past the field's own edges
+       so they read as cast onto the picture rather than belonging to it, and their
+       widths and gaps are uneven so the set never looks printed. */
+    if(S.form==='slat'){
+      const n=4+Math.round(rng()*3+S.organic*4);
+      const alongX=Math.abs(ax)>Math.abs(ay);
+      const sfid=addBlur(Math.max(sd*0.55,Math.min(W,H)*0.006),-W*0.9,-H*0.9,W*2.8,H*2.8);
+      const [gr,gg,gb]=hexToRgb(col(0));
+      const [gh,gs]=rgbToHsl(gr,gg,gb);
+      const [SR,SG,SB]=hslToRgb(gh,clamp(gs*0.75,0,1),0.09);
+      const tone=rgbToHex(SR,SG,SB);
+      const span=alongX?W:H;
+      let cursor=-span*0.12;
+      for(let i=0;i<n && cursor<span*1.12;i++){
+        const thick=span*(0.035+rng()*0.075)*(0.75+S.organic*0.7);
+        const gap=span*(0.045+rng()*0.085);
+        const p0=cursor, p1=cursor+thick;
+        cursor=p1+gap;
+        const deg=(rng()-0.5)*S.organic*7;
+        const ext=2.6;
+        const x=alongX?p0:-W*(ext-1)/2, y=alongX?-H*(ext-1)/2:p0;
+        const w2=alongX?thick:W*ext, h2=alongX?H*ext:thick;
+        const mx=x+w2/2, my=y+h2/2;
+        const corners=rotPts([[x,y],[x+w2,y],[x+w2,y+h2],[x,y+h2]],deg,mx,my);
+        const e0=rotPts(alongX?[[x,my],[x+w2,my]]:[[mx,y],[mx,y+h2]],deg,mx,my);
+        const gid=addLinear(e0[0][0],e0[0][1],e0[1][0],e0[1][1],
+          `<stop stop-color="${tone}" stop-opacity="0"/><stop offset="0.5" stop-color="${tone}" stop-opacity="${(0.45+rng()*0.4).toFixed(2)}"/><stop offset="1" stop-color="${tone}" stop-opacity="0"/>`);
+        body.push(`<g filter="url(#${sfid})" style="mix-blend-mode:multiply">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
+      }
+    }
+
+    /* RIFT — one large shadow with an edge to it. A single mass entering from a
+       corner and cutting the frame on a slow diagonal, so the composition divides
+       into a lit part and a dark part rather than fading evenly. The dividing edge
+       carries the same wobble the organic fields use, which is what keeps it from
+       looking like a shape pasted on top. */
+    if(S.form==='rift'){
+      const rfid=addBlur(Math.max(sd*0.85,Math.min(W,H)*0.012),-W*0.9,-H*0.9,W*2.8,H*2.8);
+      const [gr,gg,gb]=hexToRgb(col(0));
+      const [gh,gs]=rgbToHsl(gr,gg,gb);
+      const [SR,SG,SB]=hslToRgb(gh,clamp(gs*0.75,0,1),0.08);
+      const tone=rgbToHex(SR,SG,SB);
+      const n=1+(rng()<0.35?1:0);
       for(let i=0;i<n;i++){
-        const t=(i+0.5)/n;
-        const ci=t>0.62?2:(t>0.3?1:0);
-        const c2=col(ci);
-        const r=R0*(0.72+t*0.5)+(rng()-0.5)*D*0.05;
-        const thick=D*(0.05+rng()*0.13)*(0.7+S.organic*0.7);
-        const a0=Math.PI*(0.5-0.55), a1=Math.PI*(0.5+0.55);
-        const seg=70, outer=[], innerp=[];
-        for(let k=0;k<=seg;k++){
-          const u=k/seg, a=a0+(a1-a0)*u, hw=thick/2*taperAt(u);
-          const dx2=Math.cos(a), dy2=Math.sin(a);
-          const sgn=(oy>cy)?-1:1;
-          outer.push([ox+dx2*(r+hw), oy+sgn*dy2*(r+hw)]);
-          innerp.push([ox+dx2*(r-hw), oy+sgn*dy2*(r-hw)]);
+        /* A shadow only reads where there is light to take away. Placed out in the
+           dark end this cut nothing — measured, it was darkening the ground at four
+           times the rate it touched the lit band, which is invisible. It now sits
+           across the middle of the ramp so its leading edge crosses the light. */
+        const perp=[-ay,ax];
+        const off=(i===0?-1:1)*(0.06+rng()*0.20)+(rng()-0.5)*0.10;
+        const lead=(i===0?0.10:0.34)+rng()*0.16;
+        const cxr=cx+ax*L*lead+perp[0]*off*D;
+        const cyr=cy+ay*L*lead+perp[1]*off*D;
+        const deg=(Math.atan2(perp[1],perp[0])*180/Math.PI)+(rng()-0.5)*(26+S.organic*34);
+        const wob=waveFn(rng);
+        const half=D*1.4, depth=D*(0.42+rng()*0.55);
+        const seg=72, front=[], backp=[];
+        for(let q=0;q<=seg;q++){
+          const u=q/seg, t2=(u-0.5)*2*half;
+          const bend=S.organic*D*0.11*wob(u)+Math.pow(Math.abs(u-0.5)*2,2)*D*0.06;
+          front.push([t2, bend]);
+          backp.push([t2, bend+depth]);
         }
-        const pts=outer.concat(innerp.reverse());
-        const mid=Math.floor(seg/2);
-        const gid=addLinear(outer[mid][0],outer[mid][1],innerp[mid][0],innerp[mid][1],
-          `<stop stop-color="${c2}" stop-opacity="0"/><stop offset="0.5" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/>`);
-        const fid2=addBlur(Math.max(sd*0.88,thick*0.45),-W*0.9,-H*0.9,W*2.8,H*2.8);
-        body.push(`<g filter="url(#${fid2})" opacity="${(0.38+rng()*0.36).toFixed(2)}">\n<path d="${quadPath(pts)}" fill="url(#${gid})"/>\n</g>`);
+        const pts=rotPts(front.concat(backp.reverse()).map(q=>[q[0]+cxr,q[1]+cyr]),deg,cxr,cyr);
+        const ge=rotPts([[cxr,cyr],[cxr,cyr+depth]],deg,cxr,cyr);
+        const gid=addLinear(ge[0][0],ge[0][1],ge[1][0],ge[1][1],
+          `<stop stop-color="${tone}" stop-opacity="0"/><stop offset="0.22" stop-color="${tone}" stop-opacity="${(0.68+rng()*0.3).toFixed(2)}"/><stop offset="0.72" stop-color="${tone}" stop-opacity="${(0.30+rng()*0.24).toFixed(2)}"/><stop offset="1" stop-color="${tone}" stop-opacity="0"/>`);
+        body.push(`<g filter="url(#${rfid})" style="mix-blend-mode:multiply">\n<path d="${quadPath(pts)}" fill="url(#${gid})"/>\n</g>`);
       }
     }
 
@@ -1134,29 +1222,6 @@ ${ramp}
       }
     }
 
-    if(S.form==='veil'){
-      /* Folds read as a family, not as scattered slashes: one base angle for the
-         set, each sheet tapered so it has a near and a far edge, and centre lines
-         spread across the frame so every one of them actually crosses it. */
-      const n=2+Math.round(S.organic*2.4);
-      const base=-30+rng()*60;
-      const span=Math.max(W,H)*2.9;
-      for(let i=0;i<n;i++){
-        const c=[col(2),col(1),col(0),col(1)][i%4];
-        const deg=base+(rng()-0.5)*(9+S.organic*18);
-        const wTop=Math.max(Math.max(W,H)*(0.12+rng()*0.20)*(0.7+S.organic*0.6), D*0.13);
-        const wBot=wTop*(0.45+rng()*1.15);
-        const t=(i+0.5)/n+(rng()-0.5)*(0.6/n);
-        const px=W*t, py=H/2;
-        const corners=rotPts(spindle(px,py-span/2,px,py+span/2,wTop/2,wBot/2,44),deg,px,py);
-        const mw=Math.max(wTop,wBot);
-        const ge=rotPts([[px-mw/2,py],[px+mw/2,py]],deg,px,py);
-        const gid=addLinear(ge[0][0],ge[0][1],ge[1][0],ge[1][1],
-          `<stop stop-color="${c}" stop-opacity="0"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/>`);
-        const fid=addBlur(Math.max(sd*0.95,mw*0.30),-W*0.9,-H*0.9,W*2.8,H*2.8);
-        body.push(`<g filter="url(#${fid})" opacity="${(0.30+rng()*0.28).toFixed(2)}">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
-      }
-    }
   }
 
 
