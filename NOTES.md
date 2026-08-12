@@ -118,7 +118,32 @@ the shadow area against the PNG export of the same settings. If the shadows look
 lifted and flat, the group blend was dropped — move the blend onto the rect and
 accept that the browser preview will be wrong instead.
 
-## 7. Motion is the expensive control
+## 7. The rim's corners are geometry, not blending
+
+Four edge bands screening over each other double up where they overlap and blow the
+corners, so they are **mitred** at 45 degrees and tile instead. Three things follow
+from that, all of which showed up as a visible mask edge before they were fixed:
+
+- **Mitre only where two lit edges meet.** An edge facing away from the light is
+  skipped entirely, which left its neighbour's diagonal cut running across a bare
+  corner with nothing beside it. Each end is now squared off unless the edge it
+  abuts is also lit. The choice has to be binary — cutting both ends by the full
+  depth tiles the corner exactly, and cutting neither does too, but cutting by a
+  fraction leaves a wedge uncovered.
+- **A wide facing lobe, not a bare dot product.** With a bare one an edge at right
+  angles to the light drops to zero while its neighbour sits at full, and the mitre
+  between them reads as a drawn line. `0.30 + 0.70*dot` keeps some light on every
+  edge but the fully opposite one, so neighbours never differ by more than about
+  three to one.
+- **The glow's blur is floored against its own depth.** A wide band has a long
+  diagonal at each corner, and a blur of a few percent of it leaves that diagonal
+  crisp. The floor is 14% of the depth. The core keeps its own much smaller blur, so
+  the hot line at the very edge stays sharp — this is why the rim is two passes.
+
+Measured across 45 combinations of direction, width and feather: seams above the
+grain floor fell from 16 to 6, worst from 33.5 to 15.0.
+
+## 8. Motion is the expensive control
 
 Motion is geometric, so every sample is a real layer. Drift reaches about 18 layers
 and 43 KB, against 5 and 8 KB at rest. Everything still edits normally in Figma, but
@@ -141,7 +166,7 @@ Two further rules keep motion from breaking a hard-edged shape:
 - The blur grows to at least **half the gap between copies**, so stamps fuse into a
   continuous trail rather than reading as discrete ghosts.
 
-## 8. Verify against measurement, not appearance
+## 9. Verify against measurement, not appearance
 
 Several of the above were invisible by eye and obvious in numbers. Useful checks:
 
