@@ -981,7 +981,7 @@ ${ramp}
         const ge=rotPts(alongX?[[x,my2],[x+w,my2]]:[[mx2,y],[mx2,y+h]],deg,mx2,my2);
         const gid=addLinear(ge[0][0],ge[0][1],ge[1][0],ge[1][1],
           `<stop stop-color="${c}" stop-opacity="0"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/>`);
-        const fid=addBlur(sd*0.30,-W*0.6,-H*0.6,W*2.2,H*2.2);
+        const fid=addBlur(Math.max(sd*0.62,thick*0.40),-W*0.9,-H*0.9,W*2.8,H*2.8);
         body.push(`<g filter="url(#${fid})" opacity="${(0.42+rng()*0.4).toFixed(2)}">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
       }
     }
@@ -1012,7 +1012,7 @@ ${ramp}
         const mid=Math.floor(seg/2);
         const gid=addLinear(outer[mid][0],outer[mid][1],innerp[mid][0],innerp[mid][1],
           `<stop stop-color="${c2}" stop-opacity="0"/><stop offset="0.5" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/>`);
-        const fid2=addBlur(Math.max(sd*0.32,thick*0.22),-W*0.8,-H*0.8,W*2.6,H*2.6);
+        const fid2=addBlur(Math.max(sd*0.88,thick*0.45),-W*0.9,-H*0.9,W*2.8,H*2.8);
         body.push(`<g filter="url(#${fid2})" opacity="${(0.38+rng()*0.36).toFixed(2)}">\n<path d="${quadPath(pts)}" fill="url(#${gid})"/>\n</g>`);
       }
     }
@@ -1039,7 +1039,7 @@ ${ramp}
         const pts=outer.concat(innerp.reverse());
         const gid=addRadial(hx,hy,r+thick,
           `<stop stop-color="${c2}" stop-opacity="0"/><stop offset="${clamp((r-thick)/(r+thick),0,0.95).toFixed(3)}" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/>`);
-        const fid2=addBlur(Math.max(sd*0.34,thick*0.4),-W*0.8,-H*0.8,W*2.6,H*2.6);
+        const fid2=addBlur(Math.max(sd*0.82,thick*0.55),-W*0.9,-H*0.9,W*2.8,H*2.8);
         body.push(`<g filter="url(#${fid2})" opacity="${((0.5-t*0.22)*(0.7+rng()*0.5)).toFixed(2)}">\n<path d="${quadPath(pts)}" fill="url(#${gid})"/>\n</g>`);
       }
     }
@@ -1064,7 +1064,7 @@ ${ramp}
         const pts=spindle(x0,y0,x1,y1,wid/2,wid/2*0.25,52);
         const gid=addLinear(x0,y0,x1,y1,
           `<stop stop-color="${c2}" stop-opacity="0.15"/><stop offset="0.45" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/>`);
-        const fid2=addBlur(Math.max(sd*0.3,wid*0.35),-W*0.8,-H*0.8,W*2.6,H*2.6);
+        const fid2=addBlur(Math.max(sd*0.80,wid*0.55),-W*0.9,-H*0.9,W*2.8,H*2.8);
         body.push(`<g filter="url(#${fid2})" opacity="${(0.34+rng()*0.4).toFixed(2)}">\n<path d="${quadPath(pts)}" fill="url(#${gid})"/>\n</g>`);
       }
     }
@@ -1088,7 +1088,7 @@ ${ramp}
         const ge=rotPts([[px-mw/2,py],[px+mw/2,py]],deg,px,py);
         const gid=addLinear(ge[0][0],ge[0][1],ge[1][0],ge[1][1],
           `<stop stop-color="${c}" stop-opacity="0"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/>`);
-        const fid=addBlur(sd*0.45,-W*0.6,-H*0.6,W*2.2,H*2.2);
+        const fid=addBlur(Math.max(sd*0.95,mw*0.30),-W*0.9,-H*0.9,W*2.8,H*2.8);
         body.push(`<g filter="url(#${fid})" opacity="${(0.30+rng()*0.28).toFixed(2)}">\n<path d="${quadPath(corners)}" fill="url(#${gid})"/>\n</g>`);
       }
     }
