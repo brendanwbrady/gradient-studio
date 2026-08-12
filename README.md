@@ -47,7 +47,7 @@ Frames: 8:9 (960×1080), 16:9, 1:1, 9:16, and Phone (1179×2556).
 | **Light** | Direction, middle point, falloff, bloom |
 | **Hand** | Organic, seed |
 | **Motion** | Drift, direction (across / along / spin) |
-| **Finish** | Exposure, saturation, contrast, highlights, shadows, rim, rim sides, grain |
+| **Finish** | Exposure, saturation, contrast, highlights, shadows, rim (strength, width, core, feather, sides), grain |
 
 **Seed** governs every random decision — wave phases, gradient tilt, bloom placement,
 field geometry, grain pattern. Same seed plus same settings reproduces a file exactly.
