@@ -43,19 +43,19 @@ Frames: 8:9 (960×1080), 16:9, 1:1, 9:16, and Phone (1179×2556).
 | --- | --- |
 | **Palette** | Room and traditional presets, three colour stops, image sampling |
 | **Frame** | Output dimensions |
-| **Field** | Form (5 geometric, 9 organic), width, margin, blur |
+| **Field** | Form (5 geometric, 9 organic), width, margin, blur, shade |
 | **Light** | Direction, middle point, falloff, bloom |
 | **Hand** | Organic, seed |
 | **Motion** | Drift, direction (across / along / spin) |
-| **Cast** | Pattern (coupe / flute / piano / chandelier), strength, angle, blur, scale, position |
-| **Finish** | Saturation, contrast, highlights, shadows, grain |
+| **Finish** | Exposure, saturation, contrast, highlights, shadows, rim, rim sides, grain |
 
 **Seed** governs every random decision — wave phases, gradient tilt, bloom placement,
-cast layout, grain pattern. Same seed plus same settings reproduces a file exactly.
+field geometry, grain pattern. Same seed plus same settings reproduces a file exactly.
 
-**Randomize** rolls composition, palette, light and motion within bounded ranges.
-It deliberately holds the frame, the entire Finish panel and the entire Cast panel —
-calibration and deliberate finishing touches, rather than exploration.
+**Randomize** rolls composition, palette, light, motion and shade within bounded
+ranges.
+It deliberately holds the frame and the entire Finish panel, which are calibration
+rather than exploration.
 
 **Undo/redo** is ⌘Z / ⇧⌘Z across every control, including palette loads and image
 sampling. Panel open/closed state is excluded, so undo never moves the interface.
