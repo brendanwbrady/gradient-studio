@@ -87,17 +87,75 @@ so each survives the blur, and bends the shoulders so the transition reads as de
 rather than as a linear blend. Measured on a light stop of luminance 197, peak output
 went from 164 to 196 once this was in place.
 
-## 6. Verify against measurement, not appearance
+## 6. Blend modes go on the group, never on the shape
+
+Figma writes `mix-blend-mode` on the **shape** inside a filtered group, and applies
+it at the layer level:
+
+```
+<g filter="url(#filter1_n)"><rect ... style="mix-blend-mode:multiply"/></g>
+```
+
+In a browser that is a **no-op**. The filter on the group creates isolation, so the
+rect blends against an empty backdrop and the layer paints straight over the
+artwork instead of multiplying with it. This was live for a long time and showed up
+as grain washing the picture out — shadows lifting 17 levels and contrast dropping
+13 at moderate grain.
+
+Blend modes therefore go on the **group**, which blends the filtered result against
+the artwork and behaves correctly in a browser. This is the one place the export
+deliberately differs from Figma's own serialisation, and it is the single remaining
+Figma-fidelity assumption in the file: that Figma honours a blend mode on a group.
+
+Two things limit the damage if it ever turns out it does not:
+
+- Every blended layer sits above an **opaque background rect**, so the backdrop is
+  always the artwork itself and never the canvas behind it.
+- Grain strength lives in the **flood colour**, not the plate. Plate alpha is kept as
+  low as the speckle allows, so a dropped blend costs about 7 levels in the shadows
+  rather than 18.
+
+To check it in 30 seconds: paste an export with grain at 20% into Figma and compare
+the shadow area against the PNG export of the same settings. If the shadows look
+lifted and flat, the group blend was dropped — move the blend onto the rect and
+accept that the browser preview will be wrong instead.
+
+## 7. Motion is the expensive control
+
+Motion is geometric, so every sample is a real layer. A cast under drift reaches
+about 32 layers and 58 KB, against 5 and 8 KB at rest. Everything still edits
+normally in Figma, but that is the cost of the control.
+
+Two rules keep motion from breaking a hard-edged shape:
+
+- Motion copies of a cast live inside **one multiplying group** and composite
+  normally within it. Multiplying each copy separately makes the overlaps go black
+  and the trail read as several objects instead of one in motion.
+- The blur grows to at least **half the gap between copies**, so stamps fuse into a
+  continuous trail rather than reading as discrete ghosts.
+
+A cast also travels less than the field around it, and a spin turns it about its
+own centre rather than the frame's — otherwise a shadow standing at the foot of the
+frame gets flung across it.
+
+## 8. Verify against measurement, not appearance
 
 Several of the above were invisible by eye and obvious in numbers. Useful checks:
 
 - **Grain stability** — high-pass sigma of preview vs PNG vs SVG-at-native-size.
   These three must agree.
+- **Grain neutrality** — mean, shadow and contrast shift between grain 0 and grain
+  20 should all be near zero. Grain that moves them is compressing the picture.
+- **Noise period** — `baseFrequency ÷ Grain Scale` must stay under about 1.0, or the
+  period drops below a pixel and the texture changes with render size. The Scale
+  slider's floor exists for this reason.
 - **Highlight fidelity** — brightest pixel in the output vs the authored light stop.
 - **Export cleanliness** — count `transform=`, `stdDeviation="N N"`, and `<g...><g` in
   the exported SVG. All three should be zero.
 - **Held settings** — after N randomizes, confirm frame and every Finish control is
   unmoved.
 
-Contact sheets built from downscaled thumbnails introduce their own artefacts. Verify
-suspected rendering faults at 1:1 before chasing them.
+Contact sheets built from downscaled thumbnails introduce their own artefacts —
+this has produced a false "hard edge at the frame" three separate times, and each
+time the export was clean at 1:1. Verify suspected rendering faults at full
+resolution before chasing them.
