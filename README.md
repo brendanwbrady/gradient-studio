@@ -60,6 +60,10 @@ calibration and deliberate finishing touches, rather than exploration.
 **Undo/redo** is ⌘Z / ⇧⌘Z across every control, including palette loads and image
 sampling. Panel open/closed state is excluded, so undo never moves the interface.
 
+**Zoom** is on the preview only — buttons bottom right, or `+` / `-` / `0`. Drag to
+pan once past 100%. It is a view of the artwork rather than a property of it, so it
+never enters the state, the history or the export.
+
 ---
 
 ## Deploys
