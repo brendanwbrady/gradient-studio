@@ -53,14 +53,12 @@ Scale, rotation and position are resolved in JavaScript into absolute path
 coordinates. Nothing in the export carries a `transform`, and no filtered group
 contains another transformed group.
 
-This applies to Cast, Smear, Veil and every motion sample. `bake()` and `rotPts()`
+This applies to Smear, Veil and every motion sample. `bake()` and `rotPts()`
 exist for exactly this purpose.
 
 Consequence worth knowing: a `userSpaceOnUse` gradient is normally transformed along
 with its element. With coordinates baked, gradient endpoints must be transformed
-explicitly too — Smear and Veil do this so the fade stays aligned to the band. Cast
-deliberately does **not**, so its fade stays locked to the frame's light axis rather
-than tilting with the pattern.
+explicitly too — Smear and Veil do this so the fade stays aligned to the band.
 
 ## 4. Blur radii stay symmetric
 
@@ -73,7 +71,7 @@ offset the samples, Spin rotates them through an arc. Every blur in the file is 
 single symmetric value.
 
 The cost is layer count. Motion multiplies the field by five to nine samples; drift
-plus a cast has reached seventeen groups against four at rest. Motion is the expensive
+has reached eighteen groups against four at rest. Motion is the expensive
 control.
 
 ## 5. Blur eats the ends of a gradient ramp
@@ -120,152 +118,11 @@ the shadow area against the PNG export of the same settings. If the shadows look
 lifted and flat, the group blend was dropped — move the blend onto the rect and
 accept that the browser preview will be wrong instead.
 
-## 7. The glint is photographic light, not drawn shadow
+## 7. Motion is the expensive control
 
-The cast is not drawn any more. It is a photograph of the object backlit on a black
-ground, embedded as a data URI and composited with **screen** — so the black adds
-nothing and only the rim light lands on the gradient. Nothing occludes: the object
-does not block the picture, it contributes highlights to it, which is what the
-direction wants now that the gradient itself is the dark room.
-
-A vector rim can be made to fall off correctly, but it cannot carry a flare, the
-double edge where glass turns back on itself, or the way a highlight breaks over a
-moulding. Those are the whole point, so the photograph is used as it is.
-
-The glint is **two plates of the same shot**, registered to each other and drawn
-into the same box:
-
-- the **black-ground original**, which carries the soft glow, the flare and the
-  falloff either side of each highlight;
-- the **transparent extraction**, which carries the crisp line but threw that away.
-
-Both composite with **colour-dodge**, never screen. Black is an identity for dodge
-as well, so the black-ground plate still hides its own background, and dodge is what
-makes the light answer to the gradient underneath. Screen for the glow puts the soft
-light back but wrecks the tonal balance — measured bright-to-dark contrast fell to
-0.16, against 0.42 for the extraction alone and 0.38 the current way.
-
-The two plates are delivered at **identical dimensions from the same shot**, so they
-register with no correction: measured correlation 0.95 to 0.97 with no adjustment at
-all. Both are cropped with **one shared box** — the union of the two content bounds,
-which also keeps the glow that spills past the extraction's alpha edge — and both are
-resized together, so they fill the same rect exactly. Measured offset between the two
-rendered layers: 0px in both axes.
-
-An earlier pair was delivered at different sizes and did **not** register; it had to
-be aligned by correlation search over scale and offset, and left a 3px by 6px
-residual. **Check the correlation before trusting a crop.** If a future pair does not
-land near 0.95 unadjusted, the search has to come back — assuming alignment leaves a
-visible double edge on every rim.
-
-The transparent plates are **PNGs** — the object's rim carried in the alpha channel,
-with everything else fully clear. That is what removed the blend-mode contortions:
-there is no black ground left to hide, so the compositing no longer has to hunt for
-a blend that treats black as identity.
-
-They are stored as **luminance + alpha only**. The colour in the source is discarded,
-because the tint pipeline maps luminance through the palette anyway, and two channels
-compress to about a third of what RGBA does with nothing lost that is used.
-
-The tinted plate is rendered at **1.4x the size the object is actually drawn**, not at
-source resolution. Measured against a 2x PNG export, 1.4x and 2x are pixel-identical
-— the cast blur and the source-to-display downscale are the limiting factors — and it
-halves the export.
-
-**Every new object needs a gain.** The plates carry very different amounts of light:
-measured lit area is 5.4% for the coupe, 7.9% for the flute, 1.9% for the piano and
-2.0% for the chandelier, while per-pixel brightness is near identical at 161-171
-across all four. Rendered at the same Strength that left the chandelier delivering a
-quarter of the coupe's light. `GLINT_GAIN` corrects it, applied as a screen curve on
-the mapped colour — not layer opacity, which was already clamping at 1, and not a
-linear multiply, which blows the specular cores.
-
-The curve saturates, so parity is not reachable and should not be chased: past the
-current values the chandelier's line flattens toward a uniform white and stops
-reading as a lit tube. Spread is 4.25x down to 1.76x, which is close enough that
-Strength behaves consistently.
-
-To set a gain for a new object, render it against the coupe at the same Strength and
-compare total light — the sum of the per-pixel lift over the no-glint render.
-
-Preparing a new object:
-
-1. Shoot or generate it **backlit with rim lighting**, then deliver it as a
-   **transparent PNG** with the background removed — not black.
-2. Crop to the alpha bounds with a small margin.
-3. Resize to 1800px on the long edge.
-4. Convert to **luminance + alpha** and save as an optimised PNG. About 160-320 KB
-   each, 720 KB for four.
-5. Add to `CAST_IMG` as `{w, h, src}` with a base64 data URI.
-
-The glint composites in **two passes**, and the choice of blends is not free:
-
-- **Colour-dodge** divides by the inverse of the source, so it scales with what is
-  already underneath — the object burns in where it crosses the lit band and falls
-  away into the dark. That is the response wanted, and crucially black is an
-  identity for it, so the photograph's ground still contributes nothing.
-- **Screen** underneath at low opacity sets a floor, so the object never disappears
-  entirely in the darkest corners.
-
-**Overlay and soft-light cannot be used here.** Neither is transparent to black, so
-the photograph's background prints as a dark rectangle over the artwork. Only screen
-and colour-dodge leave black alone.
-
-The floor pass uses a **downscaled copy** of the same plate — it is faint and
-blurred, so a 460px version is visually identical there, and it keeps the export
-from carrying the same photograph twice at full size. That is the difference between
-a 409 KB and a 224 KB paste for the coupe.
-
-Two constraints worth keeping:
-
-- The href must stay a **data URI**. An external URL would break the moment the SVG
-  left this page.
-- Motion does not apply to the cast any more. Each motion copy would duplicate the
-  encoded image, and a `<use>` reference is not something Figma's importer can be
-  relied on for. Drift affects the field only.
-
-There is no rotation control, so the export carries no `transform` at all.
-
-The photograph is **gradient-mapped into the palette** before it is embedded: its
-luminance runs through black → middle stop → light stop, with only the hottest
-cores pushing to white the way a real specular does. The map is baked into the
-pixels on a canvas rather than applied as an SVG filter, so the exported file
-carries a plain `<image>` and needs no colour primitive Figma might not honour.
-Results are cached per object and palette, since re-encoding on every slider move
-would be slow.
-
-## 7b. The earlier vector rim, kept for reference
-
-The cast does not draw a silhouette. The object is barely present — a faint
-thickening of the dark — and what reads is the catch of light on the edges that
-turn toward the source.
-
-The rim is geometric, never a stroke. It is the crescent between the outline and a
-copy of itself pushed a little **away** from the light, so it comes out naturally
-wide where an edge faces the light square-on and vanishes where the edge turns
-away. A stroke would be even all the way round and read as an outline; this cannot,
-because the falloff is a property of the shape.
-
-The crescent is cut into short arcs. Each is brightened by how much it faces the
-light, knocked about by the cast's own generator, and about a quarter are dropped
-entirely — the gaps are what make it read as light finding the object rather than
-tracing it. The arcs are sorted into four brightness tiers and emitted as four
-paths, so the whole rim costs four layers rather than one per arc.
-
-Two things worth keeping:
-
-- The rim follows the **Light panel's direction**, not the field's seed-tilted
-  light axis. Using the tilted axis makes Shuffle swing the lit edge around, and
-  the cast is meant to be immune to the seed.
-- A highlight over a bright part of the field is invisible; the same highlight over
-  the dark reads strongly. That asymmetry is correct and is the point of the
-  direction — the object appears where the picture is darkest.
-
-## 8. Motion is the expensive control
-
-Motion is geometric, so every sample is a real layer. A cast under drift reaches
-about 32 layers and 58 KB, against 5 and 8 KB at rest. Everything still edits
-normally in Figma, but that is the cost of the control.
+Motion is geometric, so every sample is a real layer. Drift reaches about 18 layers
+and 43 KB, against 5 and 8 KB at rest. Everything still edits normally in Figma, but
+that is the cost of the control.
 
 **Motion copies must average, not stack.** Painted source-over at their own weights,
 fifteen copies of one shape reach full alpha wherever they overlap, so a trail comes
@@ -281,17 +138,10 @@ brightness of the frame as a side effect.
 
 Two further rules keep motion from breaking a hard-edged shape:
 
-- Motion copies of a cast live inside **one multiplying group** and composite
-  normally within it. Multiplying each copy separately makes the overlaps go black
-  and the trail read as several objects instead of one in motion.
 - The blur grows to at least **half the gap between copies**, so stamps fuse into a
   continuous trail rather than reading as discrete ghosts.
 
-A cast also travels less than the field around it, and a spin turns it about its
-own centre rather than the frame's — otherwise a shadow standing at the foot of the
-frame gets flung across it.
-
-## 9. Verify against measurement, not appearance
+## 8. Verify against measurement, not appearance
 
 Several of the above were invisible by eye and obvious in numbers. Useful checks:
 
