@@ -417,7 +417,8 @@ const FORMS=[
   ['field','Field','geo'],['arch','Arch','geo'],['vault','Vault','geo'],
   ['portal','Portal','geo'],['plume','Plume','geo'],
   ['wave','Wave','org'],['drape','Drape','org'],
-  ['mesh','Mesh','org'],['orb','Orb','org'],['smear','Smear','org'],['veil','Veil','org']
+  ['mesh','Mesh','org'],['orb','Orb','org'],['smear','Smear','org'],['veil','Veil','org'],
+  ['arc','Arc','org'],['halo','Halo','org'],['reed','Reed','org']
 ];
 /* forms that compose their own masses instead of one inset shape */
 const REPLACE={mesh:1,orb:1};
@@ -457,6 +458,9 @@ const TEXTURES={
      sampling limit, where its rendered strength swings wildly with render scale.
      0.55 puts it near two pixels: stable at any size, and the same in the
      preview, the PNG and Figma. */
+  /* Scale divides this frequency, so a Scale below 1 would push the noise
+     period under a pixel — the sampling limit that made grain render
+     differently at every size. The slider's floor is 1 for that reason. */
   grain: {fx:0.90,  fy:0.90, oct:2, nGain:1.5}
   /* Tooth, Washi and Mottle are parked — none of them held up next to Grain.
      The engine reads this map by key, so re-adding a profile here and an option
@@ -497,7 +501,7 @@ const CTRLS=[
   {id:'castX',    min:-1,  max:1,   step:0.01, scale:100,dec:0,unit:'%'},
   {id:'castY',    min:-1,  max:1,   step:0.01, scale:100,dec:0,unit:'%'},
   {id:'grain',    min:0,   max:0.3, step:0.005,scale:100,dec:0,unit:'%'},
-  {id:'grainSize',min:0.3, max:3,   step:0.05, scale:1,  dec:2,unit:''}
+  {id:'grainSize',min:1,   max:4,   step:0.05, scale:1,  dec:2,unit:''}
 ];
 
 /* ---------- geometry ---------- */
@@ -815,14 +819,14 @@ ${ramp}
     if(S.driftDir==='spin'){
       /* rotational blur: the shape is sampled through a small arc about the
          frame centre, so everything smears on a curve rather than outward */
-      const n=5+Math.round(S.drift*5), sweep=S.drift*34;
+      const n=9+Math.round(S.drift*9), sweep=S.drift*30;
       for(let k=0;k<n;k++){
         const t=n>1?(k/(n-1))*2-1:0;
         COPIES.push({sc:1,tx:0,ty:0,rot:t*sweep/2,
                      op:Math.abs(t)<1e-6?1:0.32+0.44*(1-Math.abs(t))});
       }
     }else{
-      const n=5+Math.round(S.drift*4);
+      const n=9+Math.round(S.drift*8);
       for(let k=0;k<n;k++){
         const t=n>1?(k/(n-1))*2-1:0, off=t*reach;
         COPIES.push({sc:1,tx:smearHoriz?off:0,ty:smearHoriz?0:off,
@@ -964,8 +968,10 @@ ${ramp}
         const c=t>0.62?col(2):(t>0.3?col(1):col(0));
         const thick=D*(0.07+rng()*0.16)*(0.7+S.organic*0.7);
         const px=cx-ax*L/2+ax*L*t, py=cy-ay*L/2+ay*L*t;
-        const x=alongX?px-thick/2:-W*0.2, y=alongX?-H*0.2:py-thick/2;
-        const w=alongX?thick:W*1.4, h=alongX?H*1.4:thick;
+        /* run long enough that the taper falls outside the frame entirely */
+        const ext=2.8;
+        const x=alongX?px-thick/2:-W*(ext-1)/2, y=alongX?-H*(ext-1)/2:py-thick/2;
+        const w=alongX?thick:W*ext, h=alongX?H*ext:thick;
         const deg=(rng()-0.5)*2*(2+S.organic*9);
         const mx2=x+w/2, my2=y+h/2;
         /* run the spindle along the band's length; thickness is its cross-axis */
@@ -980,17 +986,100 @@ ${ramp}
       }
     }
 
+    if(S.form==='arc'){
+      /* Bands bent around a long radius, so the light curves through the frame
+         instead of running straight across it — the one gesture the straight
+         forms cannot make. */
+      const n=2+Math.round(rng()*1.4+S.organic*2);
+      const R0=Math.max(W,H)*(1.05+rng()*0.9);
+      const ox=cx+(rng()-0.5)*W*0.5, oy=cy+R0*(rng()<0.5?1:-1)*0.86;
+      for(let i=0;i<n;i++){
+        const t=(i+0.5)/n;
+        const ci=t>0.62?2:(t>0.3?1:0);
+        const c2=col(ci);
+        const r=R0*(0.72+t*0.5)+(rng()-0.5)*D*0.05;
+        const thick=D*(0.05+rng()*0.13)*(0.7+S.organic*0.7);
+        const a0=Math.PI*(0.5-0.55), a1=Math.PI*(0.5+0.55);
+        const seg=70, outer=[], innerp=[];
+        for(let k=0;k<=seg;k++){
+          const u=k/seg, a=a0+(a1-a0)*u, hw=thick/2*taperAt(u);
+          const dx2=Math.cos(a), dy2=Math.sin(a);
+          const sgn=(oy>cy)?-1:1;
+          outer.push([ox+dx2*(r+hw), oy+sgn*dy2*(r+hw)]);
+          innerp.push([ox+dx2*(r-hw), oy+sgn*dy2*(r-hw)]);
+        }
+        const pts=outer.concat(innerp.reverse());
+        const mid=Math.floor(seg/2);
+        const gid=addLinear(outer[mid][0],outer[mid][1],innerp[mid][0],innerp[mid][1],
+          `<stop stop-color="${c2}" stop-opacity="0"/><stop offset="0.5" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/>`);
+        const fid2=addBlur(Math.max(sd*0.32,thick*0.22),-W*0.8,-H*0.8,W*2.6,H*2.6);
+        body.push(`<g filter="url(#${fid2})" opacity="${(0.38+rng()*0.36).toFixed(2)}">\n<path d="${quadPath(pts)}" fill="url(#${gid})"/>\n</g>`);
+      }
+    }
+
+    if(S.form==='halo'){
+      /* Concentric rings around the light, each one fainter and further out —
+         the way a lamp reads through mist. */
+      const n=3+Math.round(rng()*2+S.organic*2);
+      const hx=cx+ax*L*0.20+(rng()-0.5)*W*0.16;
+      const hy=cy+ay*L*0.20+(rng()-0.5)*H*0.16;
+      for(let i=0;i<n;i++){
+        const t=(i+1)/(n+0.4);
+        const r=D*(0.10+t*0.62)*(0.85+rng()*0.3);
+        const thick=D*(0.03+rng()*0.07)*(0.7+S.organic*0.8);
+        const c2=col(i===0?2:(i<n-1?1:0));
+        const seg=90, outer=[], innerp=[];
+        const wob=waveFn(rng);
+        for(let k=0;k<=seg;k++){
+          const u=k/seg, a=u*Math.PI*2;
+          const kk=1+S.organic*0.16*wob(u);
+          outer.push([hx+Math.cos(a)*(r+thick/2)*kk, hy+Math.sin(a)*(r+thick/2)*kk*0.92]);
+          innerp.push([hx+Math.cos(a)*(r-thick/2)*kk, hy+Math.sin(a)*(r-thick/2)*kk*0.92]);
+        }
+        const pts=outer.concat(innerp.reverse());
+        const gid=addRadial(hx,hy,r+thick,
+          `<stop stop-color="${c2}" stop-opacity="0"/><stop offset="${clamp((r-thick)/(r+thick),0,0.95).toFixed(3)}" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/>`);
+        const fid2=addBlur(Math.max(sd*0.34,thick*0.4),-W*0.8,-H*0.8,W*2.6,H*2.6);
+        body.push(`<g filter="url(#${fid2})" opacity="${((0.5-t*0.22)*(0.7+rng()*0.5)).toFixed(2)}">\n<path d="${quadPath(pts)}" fill="url(#${gid})"/>\n</g>`);
+      }
+    }
+
+    if(S.form==='reed'){
+      /* Upright strokes of uneven height rising out of the dark end, tapering as
+         they go — closer to brushwork than to any of the geometric fields. */
+      const n=5+Math.round(rng()*4+S.organic*5);
+      const horiz=(S.dir==='left'||S.dir==='right');
+      for(let i=0;i<n;i++){
+        const t=(i+0.5)/n+(rng()-0.5)*(0.55/n);
+        const ci=rng()<0.6?2:(rng()<0.6?1:0);
+        const c2=col(ci);
+        const len=(horiz?bx.w:bx.h)*(0.45+rng()*0.62);
+        const wid=D*(0.028+rng()*0.075)*(0.7+S.organic*0.6);
+        const posA=horiz?bx.y+bx.h*t:bx.x+bx.w*t;
+        const rootB=horiz?(S.dir==='left'?bx.x+bx.w:bx.x):(S.dir==='up'?bx.y+bx.h:bx.y);
+        const dirS=horiz?(S.dir==='left'?-1:1):(S.dir==='up'?-1:1);
+        const x0=horiz?rootB:posA, y0=horiz?posA:rootB;
+        const x1=horiz?rootB+dirS*len:posA+(rng()-0.5)*D*0.05;
+        const y1=horiz?posA+(rng()-0.5)*D*0.05:rootB+dirS*len;
+        const pts=spindle(x0,y0,x1,y1,wid/2,wid/2*0.25,52);
+        const gid=addLinear(x0,y0,x1,y1,
+          `<stop stop-color="${c2}" stop-opacity="0.15"/><stop offset="0.45" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/>`);
+        const fid2=addBlur(Math.max(sd*0.3,wid*0.35),-W*0.8,-H*0.8,W*2.6,H*2.6);
+        body.push(`<g filter="url(#${fid2})" opacity="${(0.34+rng()*0.4).toFixed(2)}">\n<path d="${quadPath(pts)}" fill="url(#${gid})"/>\n</g>`);
+      }
+    }
+
     if(S.form==='veil'){
       /* Folds read as a family, not as scattered slashes: one base angle for the
          set, each sheet tapered so it has a near and a far edge, and centre lines
          spread across the frame so every one of them actually crosses it. */
       const n=2+Math.round(S.organic*2.4);
       const base=-30+rng()*60;
-      const span=Math.max(W,H)*2.1;
+      const span=Math.max(W,H)*2.9;
       for(let i=0;i<n;i++){
         const c=[col(2),col(1),col(0),col(1)][i%4];
         const deg=base+(rng()-0.5)*(9+S.organic*18);
-        const wTop=Math.max(W,H)*(0.12+rng()*0.20)*(0.7+S.organic*0.6);
+        const wTop=Math.max(Math.max(W,H)*(0.12+rng()*0.20)*(0.7+S.organic*0.6), D*0.13);
         const wBot=wTop*(0.45+rng()*1.15);
         const t=(i+0.5)/n+(rng()-0.5)*(0.6/n);
         const px=W*t, py=H/2;
@@ -1100,12 +1189,39 @@ ${ramp}
        darkening the multiplicand deepens what is already there and keeps the
        hue underneath, which is what a real shadow does. At full strength the
        colour is near black, at zero it is white and multiply is a no-op. */
-    /* the layer stays fully opaque; only the motion ghosts step down */
-    for(const cp of ORDER){
-      const d=shapes.map(sh=>quadPath(bake(sh,cp,cx,cy))).join('');
-      const o=cp.op;
-      body.push(`<g filter="url(#${fid})"${o<0.999?` opacity="${o.toFixed(3)}"`:''} style="mix-blend-mode:multiply">\n<path d="${d}" fill="${c}"/>\n</g>`);
-    }
+    /* A silhouette is far less forgiving of motion than a soft field: stamped a
+       few times it reads as several glasses rather than one in motion. Three
+       things fix that.
+       One — the copies live inside a single multiplying group and composite
+       normally within it, so the trail accumulates once instead of multiplying
+       over itself and going black where the copies overlap.
+       Two — the blur grows to at least half the gap between copies, so the
+       stamps fuse into a continuous trail.
+       Three — a spin turns the object about its own centre rather than the
+       frame's, so a shadow standing at the foot of the frame rotates in place
+       instead of being flung across it. */
+    let ccx=0, ccy=0, cn=0;
+    for(const sh of shapes) for(const q of sh){ ccx+=q[0]; ccy+=q[1]; cn++; }
+    ccx=cn?ccx/cn:cx; ccy=cn?ccy/cn:cy;
+    /* An object travels less than the atmosphere around it. At the field's full
+       reach a glass smears the height of the frame and stops being a glass. */
+    const CAST_TRAVEL=0.42;
+    const castOrder=ORDER.map(cp=>({...cp,tx:(cp.tx||0)*CAST_TRAVEL,ty:(cp.ty||0)*CAST_TRAVEL}));
+    const spanPx=motion
+      ? (S.driftDir==='spin'
+          ? Math.hypot(ccx-cx,ccy-cy)*Math.sin(S.drift*30*Math.PI/180)
+          : reach*2*CAST_TRAVEL)
+      : 0;
+    const gapPx=motion?spanPx/Math.max(1,castOrder.length-1):0;
+    const cfid=motion
+      ? addBlur(Math.max(M*S.castBlur*0.06,gapPx*0.55,0.4),-W*0.9,-H*0.9,W*2.8,H*2.8)
+      : fid;
+    const inner=castOrder.map(cp=>{
+      const d=shapes.map(sh=>quadPath(bake(sh,cp,ccx,ccy))).join('');
+      const o=motion?cp.op*0.55:1;
+      return `<g filter="url(#${cfid})"${o<0.999?` opacity="${o.toFixed(3)}"`:''}>\n<path d="${d}" fill="${c}"/>\n</g>`;
+    }).join('\n');
+    body.push(`<g style="mix-blend-mode:multiply">\n${inner}\n</g>`);
   }
 
   if(S.bloom>0.01){
@@ -1156,9 +1272,15 @@ ${ramp}
          filter's only child and renders in isolation, so the blend is ignored and
          the plate paints straight over the artwork — which is what was washing
          the picture out. On the group it behaves in both places. */
-      const a1=clamp(S.grain*gain*1.0,0,1), a2=clamp(S.grain*gain*0.92,0,1);
-      defs.push(noiseFilterMono('filter1_n'+sfx,W,H,S.texture,S.grainSize,S.seed,'rgba(0, 0, 0, 0.42)'));
-      defs.push(noiseFilterMono('filter2_n'+sfx,W,H,S.texture,S.grainSize,(S.seed*7+131)%9999,'rgba(255, 255, 255, 0.38)'));
+      /* The speckle's strength is the plate alpha times the flood alpha, so the
+         same result can be had from a faint plate with an opaque flood or a
+         strong plate with a faint one. The faint plate is the safer half: the
+         plate is the part that would paint directly if a viewer ever ignored the
+         group's blend mode, so keeping it as low as the speckle allows makes
+         that failure small instead of a wash. */
+      const a1=clamp(S.grain*gain*0.42,0,1), a2=clamp(S.grain*gain*0.35,0,1);
+      defs.push(noiseFilterMono('filter1_n'+sfx,W,H,S.texture,S.grainSize,S.seed,'rgb(0, 0, 0)'));
+      defs.push(noiseFilterMono('filter2_n'+sfx,W,H,S.texture,S.grainSize,(S.seed*7+131)%9999,'rgb(255, 255, 255)'));
       grain=`<g filter="url(#filter1_n${sfx})" style="mix-blend-mode:multiply">
 <rect width="${W}" height="${H}" fill="url(#${gramp('paintNa_linear'+sfx,'#ffffff','1','0.30')})" fill-opacity="${a1.toFixed(3)}"/>
 </g>
