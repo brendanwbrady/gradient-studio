@@ -130,7 +130,18 @@
   .colophon{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#5B5B63;margin-top:12px}
 
   /* ---------- stage ---------- */
-  #stage{flex:1;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;position:relative}
+  #stage{flex:1;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;position:relative;overflow:hidden}
+  #zoombar{position:absolute;right:22px;bottom:22px;display:flex;gap:4px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--r-pill);padding:4px}
+  .zb{min-width:28px;height:28px;border:0;background:transparent;color:var(--muted);border-radius:var(--r-pill);
+    cursor:pointer;padding:0 6px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;transition:.15s}
+  .zb svg{width:13px;height:13px;display:block;margin:0 auto;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+  .zb.wide{min-width:52px}
+  .zb:hover:not(:disabled){color:var(--text);background:var(--raise)}
+  .zb:disabled{opacity:.3;cursor:default}
+  #previewWrap{display:flex;align-items:center;justify-content:center;will-change:transform}
+  #previewWrap.grabbing{cursor:grabbing}
+  #previewWrap.pannable{cursor:grab}
   #preview{box-shadow:0 30px 80px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.06);line-height:0;max-width:100%}
   #preview svg{display:block;max-width:100%;max-height:calc(100vh - 158px);width:auto;height:auto}
   #meta{font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
@@ -300,8 +311,13 @@
 </aside>
 
 <main id="stage">
-  <div id="preview"></div>
+  <div id="previewWrap"><div id="preview"></div></div>
   <div id="meta"><span id="mDim"></span><span id="mForm"></span><span id="mSeed"></span></div>
+  <div id="zoombar">
+    <button class="zb" id="zoomOut" title="Zoom out (−)" aria-label="Zoom out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+    <button class="zb wide" id="zoomReset" title="Reset zoom (0)">100%</button>
+    <button class="zb" id="zoomIn" title="Zoom in (+)" aria-label="Zoom in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/><path d="M8 3.5v9"/></svg></button>
+  </div>
 </main>
 
 <div id="toast"></div>
@@ -663,6 +679,7 @@ function blurFilter(id,sd,x,y,w,h,sdy){
 </filter>`;
 }
 const GRAIN_END=0.30;   /* how much grain survives at either end of the range */
+const DITHER_FINE="1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
 const DITHER="1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
 /* Film grain, built on the same chain Figma emits for a monochrome noise
    effect: turbulence, luminance to alpha, the dither transfer, clipped to the
@@ -1111,11 +1128,17 @@ ${ramp}
        flat fill and the filter clips the noise to it, so grain eases off at both
        ends of the tonal range — it neither veils the highlight nor lifts the
        shadow. */
-    const gramp=(id,pc)=>{
+    /* Grain was compressing the picture: multiply takes the most absolute
+       luminance out of the brightest pixels, screen puts the most back into the
+       darkest, so together they squeezed both ends toward the middle. Each pass
+       is now weighted against the tone it damages — the darkening speckle is
+       strongest where the picture is already dark and fades out of the
+       highlights, the lightening speckle does the reverse. The perturbation
+       comes out roughly constant across the frame, which is what film does. */
+    const gramp=(id,pc,aDark,aLight)=>{
       defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${(cx-ax*L/2).toFixed(0)}" y1="${(cy-ay*L/2).toFixed(0)}" x2="${(cx+ax*L/2).toFixed(0)}" y2="${(cy+ay*L/2).toFixed(0)}">
-<stop stop-color="${pc}" stop-opacity="${GRAIN_END}"/>
-<stop offset="${clamp(S.mid,0.2,0.8).toFixed(2)}" stop-color="${pc}"/>
-<stop offset="1" stop-color="${pc}" stop-opacity="${GRAIN_END}"/>
+<stop stop-color="${pc}" stop-opacity="${aDark}"/>
+<stop offset="1" stop-color="${pc}" stop-opacity="${aLight}"/>
 </linearGradient>`);
       return id;
     };
@@ -1128,19 +1151,24 @@ ${ramp}
          Each plate is the identity colour for its own blend — white under
          multiply, black under screen — so the plate itself is invisible and only
          the flood registers. */
-      const a1=clamp(S.grain*gain,0,1), a2=clamp(S.grain*gain*0.78,0,1);
-      defs.push(noiseFilterMono('filter1_n'+sfx,W,H,S.texture,S.grainSize,S.seed,'rgba(0, 0, 0, 0.55)'));
-      defs.push(noiseFilterMono('filter2_n'+sfx,W,H,S.texture,S.grainSize,(S.seed*7+131)%9999,'rgba(255, 255, 255, 0.5)'));
-      grain=`<g filter="url(#filter1_n${sfx})">
-<rect width="${W}" height="${H}" fill="url(#${gramp('paintNa_linear'+sfx,'#ffffff')})" fill-opacity="${a1.toFixed(3)}" style="mix-blend-mode:multiply"/>
+      /* The blend mode goes on the group, not the rect. Figma writes it on the
+         rect and applies it at the layer level, but in a browser that rect is the
+         filter's only child and renders in isolation, so the blend is ignored and
+         the plate paints straight over the artwork — which is what was washing
+         the picture out. On the group it behaves in both places. */
+      const a1=clamp(S.grain*gain*1.0,0,1), a2=clamp(S.grain*gain*0.92,0,1);
+      defs.push(noiseFilterMono('filter1_n'+sfx,W,H,S.texture,S.grainSize,S.seed,'rgba(0, 0, 0, 0.42)'));
+      defs.push(noiseFilterMono('filter2_n'+sfx,W,H,S.texture,S.grainSize,(S.seed*7+131)%9999,'rgba(255, 255, 255, 0.38)'));
+      grain=`<g filter="url(#filter1_n${sfx})" style="mix-blend-mode:multiply">
+<rect width="${W}" height="${H}" fill="url(#${gramp('paintNa_linear'+sfx,'#ffffff','1','0.30')})" fill-opacity="${a1.toFixed(3)}"/>
 </g>
-<g filter="url(#filter2_n${sfx})">
-<rect width="${W}" height="${H}" fill="url(#${gramp('paintNb_linear'+sfx,'#000000')})" fill-opacity="${a2.toFixed(3)}" style="mix-blend-mode:screen"/>
+<g filter="url(#filter2_n${sfx})" style="mix-blend-mode:screen">
+<rect width="${W}" height="${H}" fill="url(#${gramp('paintNb_linear'+sfx,'#000000','0.30','1')})" fill-opacity="${a2.toFixed(3)}"/>
 </g>`;
     }else{
       defs.push(noiseFilter('filter1_n'+sfx,W,H,S.texture,S.grainSize,S.seed,S.grainStyle));
-      grain=`<g filter="url(#filter1_n${sfx})">
-<rect width="${W}" height="${H}" fill="url(#${gramp('paintN_linear'+sfx,col(0))})" fill-opacity="${clamp(S.grain,0,1).toFixed(3)}" style="mix-blend-mode:multiply"/>
+      grain=`<g filter="url(#filter1_n${sfx})" style="mix-blend-mode:multiply">
+<rect width="${W}" height="${H}" fill="url(#${gramp('paintN_linear'+sfx,col(0),GRAIN_END,GRAIN_END)})" fill-opacity="${clamp(S.grain,0,1).toFixed(3)}"/>
 </g>`;
     }
   }
@@ -1206,6 +1234,55 @@ document.addEventListener('keydown',e=>{
     if(e.shiftKey)redo(); else undo();
   }else if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redo();}
 });
+/* Zoom is a view of the artwork, not a property of it: it never enters the
+   state, the history or the export, so undo cannot move the camera and the file
+   you download is unaffected by how closely you were looking at it. */
+let zoom=1, panX=0, panY=0;
+const ZSTEPS=[0.5,0.75,1,1.5,2,3,4];
+function applyZoom(){
+  const wrap=$('previewWrap');
+  if(!wrap)return;
+  if(zoom<=1){panX=0;panY=0;}
+  wrap.style.transform=`translate(${panX}px, ${panY}px) scale(${zoom})`;
+  wrap.classList.toggle('pannable',zoom>1);
+  $('zoomReset').textContent=Math.round(zoom*100)+'%';
+  $('zoomIn').disabled=zoom>=ZSTEPS[ZSTEPS.length-1]-1e-6;
+  $('zoomOut').disabled=zoom<=ZSTEPS[0]+1e-6;
+}
+function stepZoom(dir){
+  const i=ZSTEPS.findIndex(z=>Math.abs(z-zoom)<1e-6);
+  let n=i<0?ZSTEPS.findIndex(z=>z>zoom):(i+dir);
+  n=clamp(n<0?0:n,0,ZSTEPS.length-1);
+  zoom=ZSTEPS[n];applyZoom();
+}
+$('zoomIn').onclick=()=>stepZoom(1);
+$('zoomOut').onclick=()=>stepZoom(-1);
+$('zoomReset').onclick=()=>{zoom=1;panX=0;panY=0;applyZoom();};
+document.addEventListener('keydown',e=>{
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName||'')))return;
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(e.key==='+'||e.key==='='){e.preventDefault();stepZoom(1);}
+  else if(e.key==='-'||e.key==='_'){e.preventDefault();stepZoom(-1);}
+  else if(e.key==='0'){e.preventDefault();zoom=1;panX=0;panY=0;applyZoom();}
+});
+/* drag to pan once zoomed in — zooming without it means never seeing the edges */
+(()=>{
+  const wrap=$('previewWrap'); let dragging=false, sx=0, sy=0;
+  wrap.addEventListener('pointerdown',e=>{
+    if(zoom<=1)return;
+    dragging=true;sx=e.clientX-panX;sy=e.clientY-panY;
+    wrap.classList.add('grabbing');wrap.setPointerCapture(e.pointerId);
+  });
+  wrap.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    panX=e.clientX-sx;panY=e.clientY-sy;applyZoom();
+  });
+  const stop=e=>{dragging=false;wrap.classList.remove('grabbing');};
+  wrap.addEventListener('pointerup',stop);
+  wrap.addEventListener('pointercancel',stop);
+})();
+applyZoom();
+
 document.querySelectorAll('.phead').forEach(h=>{
   h.addEventListener('click',()=>h.setAttribute('aria-expanded',h.getAttribute('aria-expanded')==='true'?'false':'true'));
 });
