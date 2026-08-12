@@ -43,7 +43,7 @@ Frames: 8:9 (960×1080), 16:9, 1:1, 9:16, and Phone (1179×2556).
 | --- | --- |
 | **Palette** | Room and traditional presets, three colour stops, image sampling |
 | **Frame** | Output dimensions |
-| **Field** | Form (5 geometric, 6 organic), width, margin, blur |
+| **Field** | Form (5 geometric, 9 organic), width, margin, blur |
 | **Light** | Direction, middle point, falloff, bloom |
 | **Hand** | Organic, seed |
 | **Motion** | Drift, direction (across / along / spin) |
